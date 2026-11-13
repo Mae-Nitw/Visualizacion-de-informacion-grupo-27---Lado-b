@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Fichas y Marcadores ArUco - Proyecto Turbinas</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      background: #f1f5f9;
+      padding: 30px;
+      color: #1e293b;
+    }
+    .print-sheet {
+      background: white;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 40px;
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+    h1 {
+      margin-bottom: 5px;
+      color: #0f172a;
+    }
+    p {
+      color: #64748b;
+      margin-bottom: 30px;
+    }
+    .cards-grid {
+      display: flex;
+      justify-content: center;
+      gap: 40px;
+      flex-wrap: wrap;
+    }
+    .token-card {
+      border: 3px dashed #cbd5e1;
+      padding: 20px;
+      border-radius: 16px;
+      width: 260px;
+      background: #fafafa;
+    }
+    .token-title {
+      font-weight: 800;
+      font-size: 1.2rem;
+      margin-bottom: 8px;
+    }
+    .token-1 .token-title { color: #0284c7; }
+    .token-2 .token-title { color: #10b981; }
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: bold;
+      margin-bottom: 15px;
+    }
+    .token-1 .badge { background: #e0f2fe; color: #0369a1; }
+    .token-2 .badge { background: #dcfce7; color: #15803d; }
+    .marker-svg {
+      width: 180px;
+      height: 180px;
+      display: block;
+      margin: 0 auto 15px auto;
+      background: white;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+    .instructions {
+      text-align: left;
+      margin-top: 40px;
+      background: #f8fafc;
+      padding: 20px;
+      border-radius: 8px;
+      border-left: 4px solid #3b82f6;
+      font-size: 0.95rem;
+      line-height: 1.5;
+    }
+    .instructions h3 { margin-top: 0; color: #1e3a8a; }
+    @media print {
+      body { background: white; padding: 0; }
+      .print-sheet { box-shadow: none; padding: 10px; }
+      .no-print { display: none; }
+    }
+    .btn-print {
+      background: #2563eb;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: bold;
+      cursor: pointer;
+      margin-bottom: 25px;
+    }
+    .btn-print:hover { background: #1d4ed8; }
+  </style>
+</head>
+<body>
+  <div class="print-sheet">
+    <button class="btn-print no-print" onclick="window.print()">🖨️ Imprimir Fichas</button>
+    <h1>Fichas Físicas para las Turbinas Eólicas</h1>
+    <p>Recorta cada cuadrado por la línea de puntos y pégalo sobre una base sólida (madera, acrílico, cartón o tapita de botella).</p>
+
+    <div class="cards-grid">
+      <!-- FICHA 1 -->
+      <div class="token-card token-1">
+        <div class="token-title">FICHA 1</div>
+        <div class="badge">TURBINA 1 (Arduino A)</div>
+        <!-- Marcador ArUco 4x4 ID 1 -->
+        <svg class="marker-svg" viewBox="0 0 6 6" xmlns="http://www.w3.org/2000/svg">
+          <!-- Borde negro -->
+          <rect width="6" height="6" fill="black" />
+          <!-- Cuadrícula interna 4x4 correspondiente a ID 1 (DICT_4X4_50) -->
+          <rect x="1" y="1" width="1" height="1" fill="black" />
+          <rect x="2" y="1" width="1" height="1" fill="white" />
+          <rect x="3" y="1" width="1" height="1" fill="black" />
+          <rect x="4" y="1" width="1" height="1" fill="white" />
+
+          <rect x="1" y="2" width="1" height="1" fill="black" />
+          <rect x="2" y="2" width="1" height="1" fill="white" />
+          <rect x="3" y="2" width="1" height="1" fill="white" />
+          <rect x="4" y="2" width="1" height="1" fill="white" />
+
+          <rect x="1" y="3" width="1" height="1" fill="white" />
+          <rect x="2" y="3" width="1" height="1" fill="black" />
+          <rect x="3" y="3" width="1" height="1" fill="black" />
+          <rect x="4" y="3" width="1" height="1" fill="black" />
+
+          <rect x="1" y="4" width="1" height="1" fill="black" />
+          <rect x="2" y="4" width="1" height="1" fill="white" />
+          <rect x="3" y="4" width="1" height="1" fill="black" />
+          <rect x="4" y="4" width="1" height="1" fill="white" />
+        </svg>
+        <div style="font-size:0.85rem; font-weight:600; color:#475569;">Marcador ArUco ID: 1</div>
+      </div>
+
+      <!-- FICHA 2 -->
+      <div class="token-card token-2">
+        <div class="token-title">FICHA 2</div>
+        <div class="badge">TURBINA 2 (Arduino B)</div>
+        <!-- Marcador ArUco 4x4 ID 2 -->
+        <svg class="marker-svg" viewBox="0 0 6 6" xmlns="http://www.w3.org/2000/svg">
+          <!-- Borde negro -->
+          <rect width="6" height="6" fill="black" />
+          <!-- Cuadrícula interna 4x4 correspondiente a ID 2 (DICT_4X4_50) -->
+          <rect x="1" y="1" width="1" height="1" fill="white" />
+          <rect x="2" y="1" width="1" height="1" fill="black" />
+          <rect x="3" y="1" width="1" height="1" fill="white" />
+          <rect x="4" y="1" width="1" height="1" fill="black" />
+
+          <rect x="1" y="2" width="1" height="1" fill="black" />
+          <rect x="2" y="2" width="1" height="1" fill="white" />
+          <rect x="3" y="2" width="1" height="1" fill="black" />
+          <rect x="4" y="2" width="1" height="1" fill="white" />
+
+          <rect x="1" y="3" width="1" height="1" fill="white" />
+          <rect x="2" y="3" width="1" height="1" fill="white" />
+          <rect x="3" y="3" width="1" height="1" fill="black" />
+          <rect x="4" y="3" width="1" height="1" fill="black" />
+
+          <rect x="1" y="4" width="1" height="1" fill="black" />
+          <rect x="2" y="4" width="1" height="1" fill="black" />
+          <rect x="3" y="4" width="1" height="1" fill="white" />
+          <rect x="4" y="4" width="1" height="1" fill="white" />
+        </svg>
+        <div style="font-size:0.85rem; font-weight:600; color:#475569;">Marcador ArUco ID: 2</div>
+      </div>
+    </div>
+
+    <div class="instructions">
+      <h3>Instrucciones de Uso:</h3>
+      <ol>
+        <li>Imprime esta hoja en papel tamaño carta u oficio.</li>
+        <li>Pega cada marcador en su ficha física correspondiente (ej. un cilindro de madera o acrílico de 3x3 cm a 5x5 cm).</li>
+        <li>Coloca el mapa de América extendido en una mesa con buena iluminación.</li>
+        <li>Abre la aplicación de escaneo en el celular apuntando hacia el mapa.</li>
+        <li>Al poner la <strong>Ficha 1</strong> sobre un país, la <strong>Turbina 1</strong> cobrará vida acelerando año a año.</li>
+        <li>Al poner la <strong>Ficha 2</strong> sobre otro país, la <strong>Turbina 2</strong> acelerará de forma independiente para permitir la comparación directa.</li>
+      </ol>
+    </div>
+  </div>
+</body>
+</html>
+

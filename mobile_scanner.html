@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Escáner de Mapa - Turbinas Físicas</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #090d16;
+      --card-bg: #131a29;
+      --accent-t1: #0ea5e9; /* Cyan / Azul para Turbina 1 */
+      --accent-t2: #10b981; /* Verde esmeralda para Turbina 2 */
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --border-color: #1e293b;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      overflow-x: hidden;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Barra Superior */
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 16px;
+      background: rgba(19, 26, 41, 0.85);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border-color);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 800;
+      font-size: 0.95rem;
+      letter-spacing: -0.02em;
+    }
+
+    .brand span {
+      background: linear-gradient(135deg, #0ea5e9, #10b981);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .connection-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 20px;
+      background: #1e293b;
+      color: var(--text-muted);
+    }
+
+    .connection-badge.connected {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+    }
+
+    .connection-badge.disconnected {
+      background: rgba(239, 68, 68, 0.15);
+      color: #f87171;
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    /* Pestañas de Modo */
+    .mode-tabs {
+      display: flex;
+      background: #0f172a;
+      padding: 4px;
+      margin: 8px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border-color);
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 8px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-weight: 700;
+      font-size: 0.82rem;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+
+    .tab-btn.active {
+      background: var(--card-bg);
+      color: var(--text-main);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+
+    /* Área de Visión / Mapa */
+    .viewport-container {
+      position: relative;
+      flex: 1;
+      min-height: 280px;
+      max-height: 48vh;
+      background: #000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+    }
+
+    #camera-video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    #ar-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    /* Modo Mapa Táctil */
+    .interactive-map-view {
+      display: none;
+      width: 100%;
+      height: 100%;
+      background: #0f172a;
+      position: relative;
+      overflow-y: auto;
+      padding: 12px;
+    }
+
+    .interactive-map-view.active {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .country-selector-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      padding-bottom: 12px;
+    }
+
+    .country-item-btn {
+      background: #1e293b;
+      border: 1px solid #334155;
+      padding: 10px 12px;
+      border-radius: 10px;
+      color: var(--text-main);
+      font-weight: 600;
+      font-size: 0.85rem;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 4px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .country-item-btn:active {
+      transform: scale(0.97);
+    }
+
+    .country-item-btn .meta {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+    }
+
+    .country-item-btn.selected-t1 {
+      border-color: var(--accent-t1);
+      background: rgba(14, 165, 233, 0.2);
+    }
+
+    .country-item-btn.selected-t2 {
+      border-color: var(--accent-t2);
+      background: rgba(16, 185, 129, 0.2);
+    }
+
+    /* Asignador de Ficha en Modo Táctil */
+    .token-assigner-bar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
+      align-items: center;
+      background: #1e293b;
+      padding: 6px 10px;
+      border-radius: 8px;
+      font-size: 0.8rem;
+    }
+
+    .token-toggle-btn {
+      flex: 1;
+      padding: 6px 10px;
+      border-radius: 6px;
+      border: 1px solid transparent;
+      font-weight: 700;
+      cursor: pointer;
+      font-size: 0.78rem;
+    }
+
+    .token-toggle-btn.t1 {
+      background: rgba(14, 165, 233, 0.15);
+      color: #38bdf8;
+    }
+    .token-toggle-btn.t1.active {
+      background: var(--accent-t1);
+      color: white;
+    }
+
+    .token-toggle-btn.t2 {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+    }
+    .token-toggle-btn.t2.active {
+      background: var(--accent-t2);
+      color: white;
+    }
+
+    /* Superposición AR en cámara */
+    .ar-overlay-hint {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(15, 23, 42, 0.8);
+      backdrop-filter: blur(8px);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #cbd5e1;
+      border: 1px solid rgba(255,255,255,0.1);
+      white-space: nowrap;
+      pointer-events: none;
+    }
+
+    .camera-quick-controls {
+      position: absolute;
+      bottom: 12px;
+      left: 12px;
+      right: 12px;
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      z-index: 10;
+    }
+
+    .quick-btn {
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(8px);
+      border: 1px solid #334155;
+      color: var(--text-main);
+      padding: 8px 12px;
+      border-radius: 10px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    /* HUD COMPARATIVO EN TIEMPO REAL */
+    .turbines-hud {
+      background: var(--card-bg);
+      border-top: 1px solid var(--border-color);
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .turbines-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .turbine-card {
+      background: #0f172a;
+      border-radius: 12px;
+      padding: 10px;
+      border: 1px solid #1e293b;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .turbine-card.t1 {
+      border-top: 3px solid var(--accent-t1);
+    }
+
+    .turbine-card.t2 {
+      border-top: 3px solid var(--accent-t2);
+    }
+
+    .t-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .t-name {
+      font-size: 0.75rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .t1 .t-name { color: var(--accent-t1); }
+    .t2 .t-name { color: var(--accent-t2); }
+
+    .t-remove-btn {
+      background: #334155;
+      border: none;
+      color: #cbd5e1;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.65rem;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .t-country {
+      font-size: 1rem;
+      font-weight: 800;
+      line-height: 1.2;
+      min-height: 24px;
+    }
+
+    .t-metrics {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      background: #131d31;
+      padding: 6px 8px;
+      border-radius: 8px;
+    }
+
+    .t-year-badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #f59e0b;
+    }
+
+    .t-share-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.05rem;
+      font-weight: 800;
+    }
+
+    .t-rotor-anim {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+    }
+
+    .rotor-icon {
+      display: inline-block;
+      width: 18px;
+      height: 18px;
+      animation: spin 0.8s linear infinite;
+    }
+
+    .rotor-icon.stopped {
+      animation: none;
+      opacity: 0.4;
+    }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    .t-status-text {
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: #94a3b8;
+    }
+
+    /* Barra Comparativa Central */
+    .vs-comparison-bar {
+      background: #0f172a;
+      border-radius: 8px;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .bar-track {
+      height: 8px;
+      background: #1e293b;
+      border-radius: 4px;
+      display: flex;
+      overflow: hidden;
+    }
+
+    .bar-fill-t1 {
+      background: var(--accent-t1);
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+
+    .bar-fill-t2 {
+      background: var(--accent-t2);
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+
+    .vs-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      font-weight: 700;
+    }
+
+    /* Modal o Selector Rápido */
+    .sheet-dialog {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(5px);
+      z-index: 100;
+      justify-content: center;
+      align-items: flex-end;
+    }
+
+    .sheet-dialog.open {
+      display: flex;
+    }
+
+    .sheet-content {
+      background: #131a29;
+      width: 100%;
+      max-height: 70vh;
+      border-radius: 20px 20px 0 0;
+      padding: 20px 16px;
+      overflow-y: auto;
+      border-top: 1px solid #334155;
+    }
+
+    .sheet-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+
+    .close-sheet-btn {
+      background: #334155;
+      border: none;
+      color: white;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Barra Superior -->
+  <header class="top-bar">
+    <div class="brand">
+      <span>💨 Turbinas Eólicas</span>
+    </div>
+    <div id="connection-status" class="connection-badge disconnected">
+      <span class="status-dot"></span>
+      <span id="conn-text">Desconectado</span>
+    </div>
+  </header>
+
+  <!-- Pestañas de Modo -->
+  <div class="mode-tabs">
+    <button id="tab-camera" class="tab-btn active" onclick="switchMode('camera')">
+      📷 Escáner Cámara (AR)
+    </button>
+    <button id="tab-manual" class="tab-btn" onclick="switchMode('manual')">
+      🗺️ Mapa Táctil (Feria)
+    </button>
+  </div>
+
+  <!-- Vista Principal: Cámara / Escáner -->
+  <main class="viewport-container" id="camera-viewport">
+    <video id="camera-video" autoplay playsinline muted></video>
+    <canvas id="ar-canvas"></canvas>
+
+    <div class="ar-overlay-hint" id="ar-hint">
+      🎯 Apunta al mapa o a las Fichas 1 y 2
+    </div>
+
+    <div class="camera-quick-controls">
+      <button class="quick-btn" onclick="openCountryPicker(1)">+ Asignar Ficha 1</button>
+      <button class="quick-btn" onclick="openCountryPicker(2)">+ Asignar Ficha 2</button>
+    </div>
+  </main>
+
+  <!-- Vista Secundaria: Mapa Táctil / Selector Directo -->
+  <div class="interactive-map-view" id="manual-viewport">
+    <div class="token-assigner-bar">
+      <span>Ficha Activa:</span>
+      <button id="btn-active-t1" class="token-toggle-btn t1 active" onclick="setActiveToken(1)">Ficha 1 (Azul)</button>
+      <button id="btn-active-t2" class="token-toggle-btn t2" onclick="setActiveToken(2)">Ficha 2 (Verde)</button>
+    </div>
+    <p style="font-size:0.75rem; color:var(--text-muted); margin-bottom:10px;">
+      Toca cualquier país para colocar la ficha seleccionada y activar su respectiva turbina física:
+    </p>
+    <div class="country-selector-grid" id="country-grid">
+      <!-- Generado dinámicamente -->
+    </div>
+  </div>
+
+  <!-- HUD COMPARATIVO EN TIEMPO REAL -->
+  <section class="turbines-hud">
+    <div class="turbines-grid">
+      <!-- Turbina 1 -->
+      <div class="turbine-card t1">
+        <div class="t-header">
+          <span class="t-name">Turbina 1 (Pin 5)</span>
+          <button class="t-remove-btn" onclick="removeCountry(1)">✕ Quitar</button>
+        </div>
+        <div class="t-country" id="t1-country">— Sin Ficha —</div>
+        <div class="t-metrics">
+          <span class="t-year-badge" id="t1-year">Año: —</span>
+          <span class="t-share-val" id="t1-share" style="color:var(--accent-t1);">0.0%</span>
+        </div>
+        <div class="t-rotor-anim">
+          <svg class="rotor-icon stopped" id="t1-rotor-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3" fill="currentColor"/>
+            <path d="M12 9V2M12 15v7M15 12h7M9 12H2M14.1 9.9l4.95-4.95M9.9 14.1l-4.95 4.95M14.1 14.1l4.95 4.95M9.9 9.9L4.95 4.95"/>
+          </svg>
+          <span class="t-status-text" id="t1-status">Detenida</span>
+        </div>
+      </div>
+
+      <!-- Turbina 2 -->
+      <div class="turbine-card t2">
+        <div class="t-header">
+          <span class="t-name">Turbina 2 (Pin 5)</span>
+          <button class="t-remove-btn" onclick="removeCountry(2)">✕ Quitar</button>
+        </div>
+        <div class="t-country" id="t2-country">— Sin Ficha —</div>
+        <div class="t-metrics">
+          <span class="t-year-badge" id="t2-year">Año: —</span>
+          <span class="t-share-val" id="t2-share" style="color:var(--accent-t2);">0.0%</span>
+        </div>
+        <div class="t-rotor-anim">
+          <svg class="rotor-icon stopped" id="t2-rotor-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3" fill="currentColor"/>
+            <path d="M12 9V2M12 15v7M15 12h7M9 12H2M14.1 9.9l4.95-4.95M9.9 14.1l-4.95 4.95M14.1 14.1l4.95 4.95M9.9 9.9L4.95 4.95"/>
+          </svg>
+          <span class="t-status-text" id="t2-status">Detenida</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Comparativa de Velocidad -->
+    <div class="vs-comparison-bar">
+      <div class="vs-labels">
+        <span id="t1-speed-label">T1: 0% vel</span>
+        <span>⚡ Comparativa de Giro ⚡</span>
+        <span id="t2-speed-label">T2: 0% vel</span>
+      </div>
+      <div class="bar-track">
+        <div id="t1-bar" class="bar-fill-t1"></div>
+        <div style="flex:1;"></div>
+        <div id="t2-bar" class="bar-fill-t2"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Modal Selector Rápido de País -->
+  <div class="sheet-dialog" id="sheet-picker">
+    <div class="sheet-content">
+      <div class="sheet-header">
+        <h3 id="picker-title" style="font-size:1.1rem;">Asignar a Turbina</h3>
+        <button class="close-sheet-btn" onclick="closeCountryPicker()">✕</button>
+      </div>
+      <div class="country-selector-grid" id="modal-country-grid"></div>
+    </div>
+  </div>
+
+  <script>
+    // Lista de Países de América presentes en el dataset
+    const COUNTRIES = [
+      { name: "Argentina", flag: "🇦🇷", maxWind: "12.2%" },
+      { name: "Bolivia", flag: "🇧🇴", maxWind: "2.0%" },
+      { name: "Brazil", flag: "🇧🇷", maxWind: "15.2%" },
+      { name: "Canada", flag: "🇨🇦", maxWind: "8.0%" },
+      { name: "Chile", flag: "🇨🇱", maxWind: "13.1%" },
+      { name: "Colombia", flag: "🇨🇴", maxWind: "0.2%" },
+      { name: "Costa Rica", flag: "🇨🇷", maxWind: "13.1%" },
+      { name: "Cuba", flag: "🇨🇺", maxWind: "0.4%" },
+      { name: "Ecuador", flag: "🇪🇨", maxWind: "0.4%" },
+      { name: "Guatemala", flag: "🇬🇹", maxWind: "2.5%" },
+      { name: "Honduras", flag: "🇭🇳", maxWind: "9.2%" },
+      { name: "Mexico", flag: "🇲🇽", maxWind: "5.6%" },
+      { name: "Nicaragua", flag: "🇳🇮", maxWind: "14.8%" },
+      { name: "Panama", flag: "🇵🇦", maxWind: "7.1%" },
+      { name: "Paraguay", flag: "🇵🇾", maxWind: "0.0%" },
+      { name: "Peru", flag: "🇵🇪", maxWind: "3.7%" },
+      { name: "United States", flag: "🇺🇸", maxWind: "10.3%" },
+      { name: "Uruguay", flag: "🇺🇾", maxWind: "40.6%" },
+      { name: "Venezuela", flag: "🇻🇪", maxWind: "0.1%" }
+    ];
+
+    let currentMode = "camera";
+    let activeTokenForManual = 1;
+    let targetTokenForModal = 1;
+    let ws = null;
+    let videoStream = null;
+
+    // Inicializar WebSocket con reconexión automática
+    function initWebSocket() {
+      const loc = window.location;
+      // El servidor WebSocket corre en el puerto 5001
+      const wsUrl = `ws://${loc.hostname}:5001`;
+
+      const badge = document.getElementById("connection-status");
+      const text = document.getElementById("conn-text");
+
+      try {
+        ws = new WebSocket(wsUrl);
+
+        ws.onopen = () => {
+          badge.className = "connection-badge connected";
+          text.textContent = "Arduinos En Línea";
+        };
+
+        ws.onmessage = (event) => {
+          try {
+            const msg = json = JSON.parse(event.data);
+            if (msg.type === "STATE_UPDATE" && msg.turbines) {
+              updateTurbinesUI(msg.turbines);
+            }
+          } catch(e) {}
+        };
+
+        ws.onclose = () => {
+          badge.className = "connection-badge disconnected";
+          text.textContent = "Desconectado";
+          setTimeout(initWebSocket, 2000);
+        };
+
+        ws.onerror = () => {
+          ws.close();
+        };
+      } catch(e) {
+        setTimeout(initWebSocket, 2000);
+      }
+    }
+
+    // Actualización de la UI según el estado enviado por el servidor
+    function updateTurbinesUI(turbines) {
+      const t1 = turbines["1"];
+      const t2 = turbines["2"];
+
+      // Turbina 1
+      if (t1) {
+        document.getElementById("t1-country").textContent = t1.country || "— Sin Ficha —";
+        document.getElementById("t1-year").textContent = t1.year ? `Año: ${t1.year}` : "Año: —";
+        document.getElementById("t1-share").textContent = t1.share !== undefined ? `${t1.share.toFixed(1)}%` : "0.0%";
+        document.getElementById("t1-speed-label").textContent = `T1: ${t1.speed}% vel`;
+        document.getElementById("t1-bar").style.width = `${t1.speed / 2}%`;
+
+        const rotor1 = document.getElementById("t1-rotor-icon");
+        const status1 = document.getElementById("t1-status");
+        if (t1.speed > 0) {
+          rotor1.classList.remove("stopped");
+          const duration = Math.max(0.12, 1.2 - (t1.speed / 100));
+          rotor1.style.animationDuration = `${duration}s`;
+          status1.textContent = t1.status === "holding" ? "Régimen 2025 fijo" : "Acelerando...";
+        } else {
+          rotor1.classList.add("stopped");
+          status1.textContent = "Detenida";
+        }
+      }
+
+      // Turbina 2
+      if (t2) {
+        document.getElementById("t2-country").textContent = t2.country || "— Sin Ficha —";
+        document.getElementById("t2-year").textContent = t2.year ? `Año: ${t2.year}` : "Año: —";
+        document.getElementById("t2-share").textContent = t2.share !== undefined ? `${t2.share.toFixed(1)}%` : "0.0%";
+        document.getElementById("t2-speed-label").textContent = `T2: ${t2.speed}% vel`;
+        document.getElementById("t2-bar").style.width = `${t2.speed / 2}%`;
+
+        const rotor2 = document.getElementById("t2-rotor-icon");
+        const status2 = document.getElementById("t2-status");
+        if (t2.speed > 0) {
+          rotor2.classList.remove("stopped");
+          const duration = Math.max(0.12, 1.2 - (t2.speed / 100));
+          rotor2.style.animationDuration = `${duration}s`;
+          status2.textContent = t2.status === "holding" ? "Régimen 2025 fijo" : "Acelerando...";
+        } else {
+          rotor2.classList.add("stopped");
+          status2.textContent = "Detenida";
+        }
+      }
+
+      highlightActiveCountries(t1 ? t1.country : null, t2 ? t2.country : null);
+    }
+
+    // Enviar país al servidor
+    function sendSetCountry(turbineId, countryName) {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          action: "set_country",
+          turbine: turbineId,
+          country: countryName
+        }));
+      } else {
+        // Fallback HTTP
+        fetch("/api/set_country", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ turbine: turbineId, country: countryName })
+        });
+      }
+    }
+
+    function removeCountry(turbineId) {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          action: "remove",
+          turbine: turbineId
+        }));
+      } else {
+        fetch("/api/set_country", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ turbine: turbineId, country: null })
+        });
+      }
+    }
+
+    // Cambio de modo (Cámara vs Manual)
+    function switchMode(mode) {
+      currentMode = mode;
+      document.getElementById("tab-camera").classList.toggle("active", mode === "camera");
+      document.getElementById("tab-manual").classList.toggle("active", mode === "manual");
+
+      document.getElementById("camera-viewport").style.display = mode === "camera" ? "flex" : "none";
+      document.getElementById("manual-viewport").classList.toggle("active", mode === "manual");
+
+      if (mode === "camera") {
+        startCamera();
+      } else {
+        stopCamera();
+      }
+    }
+
+    function setActiveToken(tokenNum) {
+      activeTokenForManual = tokenNum;
+      document.getElementById("btn-active-t1").classList.toggle("active", tokenNum === 1);
+      document.getElementById("btn-active-t2").classList.toggle("active", tokenNum === 2);
+    }
+
+    // Cámara trasera
+    async function startCamera() {
+      const video = document.getElementById("camera-video");
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        try {
+          if (videoStream) stopCamera();
+          videoStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { ideal: "environment" } },
+            audio: false
+          });
+          video.srcObject = videoStream;
+          requestAnimationFrame(processCameraFrame);
+        } catch (e) {
+          console.warn("No se pudo iniciar cámara o permiso denegado:", e);
+          document.getElementById("ar-hint").textContent = "Cámara no disponible. Usa el Modo Mapa Táctil.";
+        }
+      }
+    }
+
+    function stopCamera() {
+      if (videoStream) {
+        videoStream.getTracks().forEach(track => track.stop());
+        videoStream = null;
+      }
+    }
+
+    // Procesamiento en bucle de la cámara (detección visual simplificada de contraste/color o ArUco)
+    function processCameraFrame() {
+      if (currentMode !== "camera" || !videoStream) return;
+
+      const video = document.getElementById("camera-video");
+      const canvas = document.getElementById("ar-canvas");
+      if (video.readyState === video.HAVE_ENOUGH_DATA) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext("2d");
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Guía visual en pantalla para encuadre del mapa
+        const cx = canvas.width / 2;
+        const cy = canvas.height / 2;
+        ctx.strokeStyle = "rgba(14, 165, 233, 0.4)";
+        ctx.lineWidth = 3;
+        ctx.strokeRect(cx - 140, cy - 140, 280, 280);
+      }
+      requestAnimationFrame(processCameraFrame);
+    }
+
+    // Generar botones de países en vista manual
+    function populateCountryGrids() {
+      const grid = document.getElementById("country-grid");
+      const modalGrid = document.getElementById("modal-country-grid");
+      grid.innerHTML = "";
+      modalGrid.innerHTML = "";
+
+      COUNTRIES.forEach(c => {
+        // Botón para vista manual
+        const btn = document.createElement("button");
+        btn.className = "country-item-btn";
+        btn.id = `btn-country-${c.name.replace(/\s+/g, "_")}`;
+        btn.innerHTML = `
+          <span>${c.flag} ${c.name}</span>
+          <span class="meta">Max Viento: ${c.maxWind}</span>
+        `;
+        btn.onclick = () => {
+          sendSetCountry(activeTokenForManual, c.name);
+        };
+        grid.appendChild(btn);
+
+        // Botón para modal rápido
+        const mBtn = document.createElement("button");
+        mBtn.className = "country-item-btn";
+        mBtn.innerHTML = `
+          <span>${c.flag} ${c.name}</span>
+          <span class="meta">Max: ${c.maxWind}</span>
+        `;
+        mBtn.onclick = () => {
+          sendSetCountry(targetTokenForModal, c.name);
+          closeCountryPicker();
+        };
+        modalGrid.appendChild(mBtn);
+      });
+    }
+
+    function highlightActiveCountries(t1Country, t2Country) {
+      document.querySelectorAll(".country-item-btn").forEach(btn => {
+        btn.classList.remove("selected-t1", "selected-t2");
+      });
+
+      if (t1Country) {
+        const id1 = `btn-country-${t1Country.replace(/\s+/g, "_")}`;
+        const el1 = document.getElementById(id1);
+        if (el1) el1.classList.add("selected-t1");
+      }
+      if (t2Country) {
+        const id2 = `btn-country-${t2Country.replace(/\s+/g, "_")}`;
+        const el2 = document.getElementById(id2);
+        if (el2) el2.classList.add("selected-t2");
+      }
+    }
+
+    function openCountryPicker(tokenNum) {
+      targetTokenForModal = tokenNum;
+      document.getElementById("picker-title").textContent = `Asignar Ficha ${tokenNum} (${tokenNum === 1 ? 'Azul' : 'Verde'})`;
+      document.getElementById("sheet-picker").classList.add("open");
+    }
+
+    function closeCountryPicker() {
+      document.getElementById("sheet-picker").classList.remove("open");
+    }
+
+    // Inicialización
+    window.addEventListener("DOMContentLoaded", () => {
+      populateCountryGrids();
+      initWebSocket();
+      startCamera();
+    });
+  </script>
+</body>
+</html>
+
