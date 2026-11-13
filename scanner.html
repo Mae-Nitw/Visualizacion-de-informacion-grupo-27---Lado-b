@@ -84,7 +84,6 @@
       overflow: hidden;
     }
 
-    /* Video de la cámara cubriendo el fondo */
     #camera-video {
       position: absolute;
       width: 100%;
@@ -92,11 +91,11 @@
       object-fit: cover;
     }
 
-    /* MARCO DE CALIBRACIÓN GEOMÉTRICA CON ASPECTO EXACTO DEL MAPA (876 / 1024) */
+    /* Marco de Aspecto Exacto del Mapa Impreso (876 / 1024) */
     .map-frame-box {
       position: relative;
       width: 90vw;
-      max-width: 420px;
+      max-width: 400px;
       aspect-ratio: 876 / 1024;
       border: 2px dashed rgba(56, 189, 248, 0.85);
       border-radius: 12px;
@@ -105,7 +104,6 @@
       z-index: 10;
     }
 
-    /* Silueta del mapa dentro del marco exacto */
     #map-overlay {
       position: absolute;
       top: 0;
@@ -119,7 +117,6 @@
       z-index: 1;
     }
 
-    /* Canvas donde se procesa la visión y se dibujan las miras */
     #tracking-canvas {
       position: absolute;
       top: 0;
@@ -176,55 +173,33 @@
       border-color: #60a5fa;
     }
 
-    /* Control de Opacidad */
-    .opacity-widget {
-      position: absolute;
-      top: 40px;
-      right: 8px;
-      background: rgba(15, 23, 42, 0.85);
-      padding: 3px 8px;
-      border-radius: 8px;
-      z-index: 30;
+    /* Selector de Ficha Activa para Toque */
+    .token-bar {
+      display: flex;
+      gap: 6px;
+      background: #0f172a;
+      padding: 6px 12px;
+      border-bottom: 1px solid var(--border);
+      z-index: 40;
+    }
+
+    .token-select-btn {
+      flex: 1;
+      padding: 6px 8px;
+      border-radius: 6px;
+      border: 1px solid transparent;
+      font-weight: 800;
+      font-size: 0.75rem;
+      cursor: pointer;
       display: flex;
       align-items: center;
-      gap: 6px;
-      font-size: 0.65rem;
-      color: #94a3b8;
+      justify-content: center;
+      gap: 5px;
     }
-    .opacity-widget input { width: 50px; }
-
-    /* Mini Monitor de Depuración de Visión */
-    #debug-monitor {
-      position: absolute;
-      bottom: 8px;
-      left: 8px;
-      width: 100px;
-      height: 100px;
-      border: 2px solid #38bdf8;
-      border-radius: 8px;
-      background: #000;
-      z-index: 35;
-      display: none;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-    }
-
-    /* Banner de Calibración */
-    .calib-banner {
-      position: absolute;
-      bottom: 10px;
-      left: 12px;
-      right: 12px;
-      background: rgba(30, 41, 59, 0.98);
-      border: 2px solid #f59e0b;
-      padding: 8px 12px;
-      border-radius: 10px;
-      font-size: 0.72rem;
-      font-weight: 700;
-      color: #fbbf24;
-      text-align: center;
-      z-index: 45;
-      display: none;
-    }
+    .token-select-btn.t1 { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+    .token-select-btn.t1.active { background: #ef4444; color: white; }
+    .token-select-btn.t2 { background: rgba(34, 197, 94, 0.15); color: #4ade80; }
+    .token-select-btn.t2.active { background: #22c55e; color: white; }
 
     /* HUD INFERIOR */
     .hud {
@@ -283,6 +258,16 @@
       font-weight: 700;
     }
     .token-meta.active { color: #f59e0b; }
+
+    .remove-btn {
+      background: #334155;
+      border: none;
+      color: #cbd5e1;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 0.65rem;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
@@ -298,43 +283,30 @@
     </div>
   </header>
 
+  <!-- Barra de Ficha Activa (Permite colocar ficha con cámara O tocando la pantalla) -->
+  <div class="token-bar">
+    <button id="btn-tab-t1" class="token-select-btn t1 active" onclick="setActiveToken(1)">🔴 Ficha 1 (Turbina 1)</button>
+    <button id="btn-tab-t2" class="token-select-btn t2" onclick="setActiveToken(2)">🟢 Ficha 2 (Turbina 2)</button>
+  </div>
+
   <!-- Área de Visión por Computador -->
   <main class="viewport">
     <video id="camera-video" autoplay playsinline muted></video>
     
     <!-- Marco de Aspecto Exacto del Mapa Impreso (876 / 1024) -->
     <div class="map-frame-box" id="map-frame">
-      <!-- Silueta del mapa superpuesta para alinear con la mesa -->
       <img id="map-overlay" src="mapa_impreso.jpg" alt="Alineación del Mapa">
-      <!-- Canvas donde se dibujan las miras y se detectan las fichas -->
       <canvas id="tracking-canvas"></canvas>
     </div>
 
-    <!-- Barra de Controles Superiores -->
+    <!-- Controles Superiores Flotantes -->
     <div class="top-controls">
       <div class="alignment-hint" id="main-hint">
-        📐 Encuadra el mapa físico dentro del marco celeste
+        📐 Encuadra el mapa en el marco o toca un país
       </div>
       <div class="tools-bar">
-        <button class="tool-btn" id="btn-toggle-labels" onclick="toggleCountryLabels()">🏷️ Países</button>
-        <button class="tool-btn" id="btn-toggle-debug" onclick="toggleDebugMonitor()">👁️ Ver Visión</button>
-        <button class="tool-btn" id="btn-calib-t1" onclick="startCalibration(1)">🎯 Calibrar 🔴</button>
-        <button class="tool-btn" id="btn-calib-t2" onclick="startCalibration(2)">🎯 Calibrar 🟢</button>
+        <button class="tool-btn active" id="btn-toggle-labels" onclick="toggleCountryLabels()">🏷️ Países</button>
       </div>
-    </div>
-
-    <!-- Deslizador de Opacidad de Silueta -->
-    <div class="opacity-widget">
-      <span>Silueta:</span>
-      <input type="range" id="opacity-slider" min="5" max="85" value="35" oninput="changeMapOpacity(this.value)">
-    </div>
-
-    <!-- Mini Monitor de Depuración de Visión -->
-    <canvas id="debug-monitor" width="100" height="100"></canvas>
-
-    <!-- Banner de Calibración -->
-    <div class="calib-banner" id="calib-banner">
-      👉 Toca la ficha en la pantalla para memorizar su color exacto
     </div>
   </main>
 
@@ -344,21 +316,21 @@
       <!-- Ficha Física 1 (Turbina 1) -->
       <div class="token-card t1">
         <div class="token-header">
-          <span>🔴 Ficha 1 (Turbina 1)</span>
-          <span id="t1-state-badge">Buscando...</span>
+          <span>🔴 Ficha 1 (T1)</span>
+          <button class="remove-btn" onclick="removeToken(1)">✕ Quitar</button>
         </div>
         <div class="token-country" id="t1-country-name">— No detectada —</div>
-        <div class="token-meta" id="t1-meta">Coloca la ficha roja en el mapa</div>
+        <div class="token-meta" id="t1-meta">Pon la ficha o toca el país</div>
       </div>
 
       <!-- Ficha Física 2 (Turbina 2) -->
       <div class="token-card t2">
         <div class="token-header">
-          <span>🟢 Ficha 2 (Turbina 2)</span>
-          <span id="t2-state-badge">Buscando...</span>
+          <span>🟢 Ficha 2 (T2)</span>
+          <button class="remove-btn" onclick="removeToken(2)">✕ Quitar</button>
         </div>
         <div class="token-country" id="t2-country-name">— No detectada —</div>
-        <div class="token-meta" id="t2-meta">Coloca la ficha verde en el mapa</div>
+        <div class="token-meta" id="t2-meta">Pon la ficha o toca el país</div>
       </div>
     </div>
   </section>
@@ -390,86 +362,35 @@
       { name: "Argentina", flag: "🇦🇷", x: 0.585, y: 0.860, r: 0.075, wind: "12.2%" }
     ];
 
-    // Rango de color HSV tolerante
-    let hsvT1 = { hMin1: 0, hMax1: 25, hMin2: 330, hMax2: 360, sMin: 0.25, vMin: 0.20 }; // Rojo
-    let hsvT2 = { hMin: 65, hMax: 175, sMin: 0.20, vMin: 0.18 };                        // Verde
-
+    let activeSelectedToken = 1;
     let currentT1Country = null;
     let currentT2Country = null;
     let t1MissingFrames = 0;
     let t2MissingFrames = 0;
 
-    let calibratingToken = 0;
-    let showDebugMonitor = false;
     let showCountryLabels = true;
-
-    function changeMapOpacity(val) {
-      document.getElementById("map-overlay").style.opacity = (val / 100);
-    }
-
-    function toggleDebugMonitor() {
-      showDebugMonitor = !showDebugMonitor;
-      document.getElementById("debug-monitor").style.display = showDebugMonitor ? "block" : "none";
-      document.getElementById("btn-toggle-debug").classList.toggle("active", showDebugMonitor);
-    }
 
     function toggleCountryLabels() {
       showCountryLabels = !showCountryLabels;
       document.getElementById("btn-toggle-labels").classList.toggle("active", showCountryLabels);
     }
 
-    function startCalibration(tokenNum) {
-      calibratingToken = tokenNum;
-      document.getElementById("calib-banner").style.display = "block";
-      document.getElementById("calib-banner").textContent = `👉 Toca la Ficha ${tokenNum} (${tokenNum === 1 ? 'Roja' : 'Verde'}) en la pantalla para calibrar su color`;
+    function setActiveToken(num) {
+      activeSelectedToken = num;
+      document.getElementById("btn-tab-t1").classList.toggle("active", num === 1);
+      document.getElementById("btn-tab-t2").classList.toggle("active", num === 2);
     }
 
-    // Permitir calibrar O seleccionar país manualmente al tocar la pantalla
+    // Al tocar la pantalla: si la cámara no detecta la ficha por mala iluminación,
+    // el usuario puede simplemente TOCAR sobre el país en la pantalla y se activa de inmediato
     document.getElementById("tracking-canvas").addEventListener("pointerdown", (e) => {
       const rect = e.target.getBoundingClientRect();
-      const clickX = e.clientX - rect.left;
-      const clickY = e.clientY - rect.top;
+      const normX = (e.clientX - rect.left) / rect.width;
+      const normY = (e.clientY - rect.top) / rect.height;
 
-      const normX = clickX / rect.width;
-      const normY = clickY / rect.height;
-
-      // Si estaba en modo calibración de color:
-      if (calibratingToken !== 0) {
-        const procCanvas = document.getElementById("proc-canvas");
-        const ctx = procCanvas.getContext("2d");
-        const pxX = Math.floor(normX * 220);
-        const pxY = Math.floor(normY * 256);
-        const p = ctx.getImageData(Math.max(0, Math.min(219, pxX)), Math.max(0, Math.min(255, pxY)), 1, 1).data;
-        const [h, s, v] = rgbToHsv(p[0], p[1], p[2]);
-
-        if (calibratingToken === 1) {
-          hsvT1 = {
-            hMin1: Math.max(0, (h - 35 + 360) % 360),
-            hMax1: (h + 35) % 360,
-            hMin2: 330, hMax2: 360,
-            sMin: Math.max(0.15, s * 0.55),
-            vMin: Math.max(0.12, v * 0.55)
-          };
-          alert(`¡Ficha 1 (Roja) calibrada! Tono: ${Math.round(h)}°`);
-        } else if (calibratingToken === 2) {
-          hsvT2 = {
-            hMin: Math.max(0, h - 35),
-            hMax: Math.min(360, h + 35),
-            sMin: Math.max(0.15, s * 0.55),
-            vMin: Math.max(0.12, v * 0.55)
-          };
-          alert(`¡Ficha 2 (Verde) calibrada! Tono: ${Math.round(h)}°`);
-        }
-        calibratingToken = 0;
-        document.getElementById("calib-banner").style.display = "none";
-        return;
-      }
-
-      // Si no estaba calibrando: tocar sobre un país permite fijar la Ficha 1 o Ficha 2 como rescate asistido
       const tapped = findCountryAt(normX, normY);
       if (tapped) {
-        // Alternar entre Ficha 1 y Ficha 2
-        if (!currentT1Country || currentT1Country !== tapped.name) {
+        if (activeSelectedToken === 1) {
           handleToken1Detected(tapped);
         } else {
           handleToken2Detected(tapped);
@@ -477,6 +398,15 @@
       }
     });
 
+    function removeToken(num) {
+      if (num === 1) {
+        handleToken1Lost();
+      } else {
+        handleToken2Lost();
+      }
+    }
+
+    // Conversión RGB a HSV
     function rgbToHsv(r, g, b) {
       r /= 255; g /= 255; b /= 255;
       const max = Math.max(r, g, b), min = Math.min(r, g, b);
@@ -509,7 +439,7 @@
         };
       } catch (err) {
         console.error("Error al iniciar cámara:", err);
-        document.getElementById("main-hint").textContent = "Permiso de cámara denegado.";
+        document.getElementById("main-hint").textContent = "Permiso de cámara denegado. Toca los países en pantalla.";
       }
     }
 
@@ -520,22 +450,30 @@
       const mapFrame = document.getElementById("map-frame");
 
       if (video.readyState === video.HAVE_ENOUGH_DATA) {
-        // Redimensionar canvas de tracking al tamaño exacto de .map-frame
         overlayCanvas.width = mapFrame.clientWidth;
         overlayCanvas.height = mapFrame.clientHeight;
         const ctxOverlay = overlayCanvas.getContext("2d");
         ctxOverlay.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
 
-        // Si las etiquetas de países están activadas, dibujarlas sutilmente en el mapa
+        // Dibujar nombres de los países para que el usuario compruebe la alineación
         if (showCountryLabels) {
           drawCountryMapHints(ctxOverlay, overlayCanvas.width, overlayCanvas.height);
         }
 
-        // Extraer los píxeles de la cámara recortados exactamente a la región del map-frame
+        // Si hay una ficha fijada (por toque o detección), mantenerla dibujada
+        if (currentT1Country) {
+          const c1 = COUNTRIES.find(c => c.name === currentT1Country);
+          if (c1) drawSight(ctxOverlay, c1.x * overlayCanvas.width, c1.y * overlayCanvas.height, "#ef4444", "FICHA 1 (T1)");
+        }
+        if (currentT2Country) {
+          const c2 = COUNTRIES.find(c => c.name === currentT2Country);
+          if (c2) drawSight(ctxOverlay, c2.x * overlayCanvas.width, c2.y * overlayCanvas.height, "#22c55e", "FICHA 2 (T2)");
+        }
+
+        // Extraer los píxeles de la cámara en el área exacta del marco
         const frameRect = mapFrame.getBoundingClientRect();
         const videoRect = video.getBoundingClientRect();
 
-        // Coordenadas relativas del marco dentro del video
         const sx = ((frameRect.left - videoRect.left) / videoRect.width) * video.videoWidth;
         const sy = ((frameRect.top - videoRect.top) / videoRect.height) * video.videoHeight;
         const sw = (frameRect.width / videoRect.width) * video.videoWidth;
@@ -549,16 +487,6 @@
         }
         const frameData = ctxProc.getImageData(0, 0, 220, 256).data;
 
-        // Monitor de depuración
-        let ctxDebug = null;
-        let debugImg = null;
-        if (showDebugMonitor) {
-          const debugCanvas = document.getElementById("debug-monitor");
-          ctxDebug = debugCanvas.getContext("2d");
-          debugImg = ctxDebug.createImageData(100, 100);
-        }
-
-        // Búsqueda de conglomerados (blobs) de Ficha 1 (Roja) y Ficha 2 (Verde)
         let sumX1 = 0, sumY1 = 0, count1 = 0;
         let sumX2 = 0, sumY2 = 0, count2 = 0;
 
@@ -571,82 +499,36 @@
 
             const [h, s, v] = rgbToHsv(r, g, b);
 
-            let isRed = false;
-            let isGreen = false;
-
-            // Ficha 1: Rojo puro (Hue cerca de 0° o 360°, saturación visible)
-            if (s >= hsvT1.sMin && v >= hsvT1.vMin) {
-              if (h <= hsvT1.hMax1 || h >= hsvT1.hMin2) {
-                if (r > g + 20 && r > b + 20) {
-                  isRed = true;
-                  sumX1 += x; sumY1 += y; count1++;
-                }
-              }
+            // Detección Ficha 1 Roja: (Hue < 28 o > 330, saturación y brillo visible)
+            if (s >= 0.25 && v >= 0.20 && (h <= 28 || h >= 330) && (r > g + 25 && r > b + 25)) {
+              sumX1 += x; sumY1 += y; count1++;
             }
-
-            // Ficha 2: Verde puro (Hue entre 65° y 175°)
-            if (s >= hsvT2.sMin && v >= hsvT2.vMin) {
-              if (h >= hsvT2.hMin && h <= hsvT2.hMax) {
-                if (g > r + 15 && g > b + 15) {
-                  isGreen = true;
-                  sumX2 += x; sumY2 += y; count2++;
-                }
-              }
-            }
-
-            if (debugImg && y < 100 && x < 100) {
-              const di = (y * 100 + x) * 4;
-              if (isRed) {
-                debugImg.data[di] = 255; debugImg.data[di+1] = 0; debugImg.data[di+2] = 0; debugImg.data[di+3] = 255;
-              } else if (isGreen) {
-                debugImg.data[di] = 0; debugImg.data[di+1] = 255; debugImg.data[di+2] = 0; debugImg.data[di+3] = 255;
-              } else {
-                debugImg.data[di] = r/4; debugImg.data[di+1] = g/4; debugImg.data[di+2] = b/4; debugImg.data[di+3] = 255;
-              }
+            // Detección Ficha 2 Verde: (Hue entre 65 y 175)
+            else if (s >= 0.20 && v >= 0.18 && (h >= 65 && h <= 175) && (g > r + 15 && g > b + 15)) {
+              sumX2 += x; sumY2 += y; count2++;
             }
           }
         }
 
-        if (ctxDebug && debugImg) {
-          ctxDebug.putImageData(debugImg, 0, 0);
-        }
-
-        // --- EVALUAR FICHA 1 (ROJA) ---
-        // Requiere al menos 8 píxeles muestreados para filtrar ruido aislado
-        if (count1 >= 8) {
+        // Si la cámara ve la Ficha 1 roja con al menos 10 píxeles compactos
+        if (count1 >= 10) {
           t1MissingFrames = 0;
           const normX = (sumX1 / count1) / 220;
           const normY = (sumY1 / count1) / 256;
-          const screenX = normX * overlayCanvas.width;
-          const screenY = normY * overlayCanvas.height;
-
-          drawSight(ctxOverlay, screenX, screenY, "#ef4444", "FICHA 1 (T1)");
-
           const detected = findCountryAt(normX, normY);
-          handleToken1Detected(detected);
-        } else {
-          t1MissingFrames++;
-          if (t1MissingFrames > 35) { // ~1.1s sin detección
-            handleToken1Lost();
+          if (detected) {
+            handleToken1Detected(detected);
           }
         }
 
-        // --- EVALUAR FICHA 2 (VERDE) ---
-        if (count2 >= 8) {
+        // Si la cámara ve la Ficha 2 verde con al menos 10 píxeles compactos
+        if (count2 >= 10) {
           t2MissingFrames = 0;
           const normX = (sumX2 / count2) / 220;
           const normY = (sumY2 / count2) / 256;
-          const screenX = normX * overlayCanvas.width;
-          const screenY = normY * overlayCanvas.height;
-
-          drawSight(ctxOverlay, screenX, screenY, "#22c55e", "FICHA 2 (T2)");
-
           const detected = findCountryAt(normX, normY);
-          handleToken2Detected(detected);
-        } else {
-          t2MissingFrames++;
-          if (t2MissingFrames > 35) {
-            handleToken2Lost();
+          if (detected) {
+            handleToken2Detected(detected);
           }
         }
       }
@@ -654,7 +536,6 @@
       requestAnimationFrame(processLoop);
     }
 
-    // Dibuja sutilmente en el mapa los puntos de los países para confirmación visual
     function drawCountryMapHints(ctx, w, h) {
       ctx.save();
       for (const c of COUNTRIES) {
@@ -663,11 +544,11 @@
 
         ctx.beginPath();
         ctx.arc(cx, cy, 3, 0, Math.PI * 2);
-        ctx.fillStyle = "rgba(56, 189, 248, 0.4)";
+        ctx.fillStyle = "rgba(56, 189, 248, 0.5)";
         ctx.fill();
 
-        ctx.fillStyle = "rgba(226, 232, 240, 0.55)";
-        ctx.font = "bold 8px 'Plus Jakarta Sans'";
+        ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
+        ctx.font = "bold 8.5px 'Plus Jakarta Sans'";
         ctx.textAlign = "center";
         ctx.fillText(c.name, cx, cy - 5);
       }
@@ -717,75 +598,50 @@
       ctx.restore();
     }
 
-    // --- EVENTOS PROTOBJECT HACIA INDEX.HTML ---
     function handleToken1Detected(country) {
       const nameEl = document.getElementById("t1-country-name");
       const metaEl = document.getElementById("t1-meta");
-      const badgeEl = document.getElementById("t1-state-badge");
 
-      if (country) {
-        badgeEl.textContent = "✓ En país";
-        badgeEl.style.color = "#4ade80";
+      if (currentT1Country !== country.name) {
+        currentT1Country = country.name;
+        nameEl.textContent = `${country.flag} ${country.name}`;
+        metaEl.textContent = `Viento máx: ${country.wind}`;
+        metaEl.className = "token-meta active";
 
-        if (currentT1Country !== country.name) {
-          currentT1Country = country.name;
-          nameEl.textContent = `${country.flag} ${country.name}`;
-          metaEl.textContent = `Viento máx: ${country.wind}`;
-          metaEl.className = "token-meta active";
-
-          sendToProtobject(1, "set_country", country.name);
-        }
-      } else {
-        badgeEl.textContent = "Sobre el mapa";
+        sendToProtobject(1, "set_country", country.name);
       }
     }
 
     function handleToken1Lost() {
-      if (currentT1Country !== null) {
-        currentT1Country = null;
-        document.getElementById("t1-country-name").textContent = "— Levantada —";
-        document.getElementById("t1-meta").textContent = "Turbina detenida";
-        document.getElementById("t1-meta").className = "token-meta";
-        document.getElementById("t1-state-badge").textContent = "Buscando...";
-        document.getElementById("t1-state-badge").style.color = "#94a3b8";
+      currentT1Country = null;
+      document.getElementById("t1-country-name").textContent = "— Levantada —";
+      document.getElementById("t1-meta").textContent = "Turbina detenida";
+      document.getElementById("t1-meta").className = "token-meta";
 
-        sendToProtobject(1, "remove", null);
-      }
+      sendToProtobject(1, "remove", null);
     }
 
     function handleToken2Detected(country) {
       const nameEl = document.getElementById("t2-country-name");
       const metaEl = document.getElementById("t2-meta");
-      const badgeEl = document.getElementById("t2-state-badge");
 
-      if (country) {
-        badgeEl.textContent = "✓ En país";
-        badgeEl.style.color = "#4ade80";
+      if (currentT2Country !== country.name) {
+        currentT2Country = country.name;
+        nameEl.textContent = `${country.flag} ${country.name}`;
+        metaEl.textContent = `Viento máx: ${country.wind}`;
+        metaEl.className = "token-meta active";
 
-        if (currentT2Country !== country.name) {
-          currentT2Country = country.name;
-          nameEl.textContent = `${country.flag} ${country.name}`;
-          metaEl.textContent = `Viento máx: ${country.wind}`;
-          metaEl.className = "token-meta active";
-
-          sendToProtobject(2, "set_country", country.name);
-        }
-      } else {
-        badgeEl.textContent = "Sobre el mapa";
+        sendToProtobject(2, "set_country", country.name);
       }
     }
 
     function handleToken2Lost() {
-      if (currentT2Country !== null) {
-        currentT2Country = null;
-        document.getElementById("t2-country-name").textContent = "— Levantada —";
-        document.getElementById("t2-meta").textContent = "Turbina detenida";
-        document.getElementById("t2-meta").className = "token-meta";
-        document.getElementById("t2-state-badge").textContent = "Buscando...";
-        document.getElementById("t2-state-badge").style.color = "#94a3b8";
+      currentT2Country = null;
+      document.getElementById("t2-country-name").textContent = "— Levantada —";
+      document.getElementById("t2-meta").textContent = "Turbina detenida";
+      document.getElementById("t2-meta").className = "token-meta";
 
-        sendToProtobject(2, "remove", null);
-      }
+      sendToProtobject(2, "remove", null);
     }
 
     function sendToProtobject(turbineId, action, countryName) {

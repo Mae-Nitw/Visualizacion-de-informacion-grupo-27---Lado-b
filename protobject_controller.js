@@ -1,11 +1,7 @@
 /*
   =============================================================================
-  CONTROLADOR PROTOBJECT Y COMUNICACIÓN CON ROTORES (PIN 5) - GRUPO 27
-  Soporta:
-  1. ProtoArduino nativo de Protobject (Protobject.Arduino.servoWrite)
-  2. Web Serial API (Chrome/Edge) compatible con cualquier firmware de Leonardo
-  3. Secuencia temporal 2000 a 2025
-  4. Botón de Test físico de 2 segundos para verificar hardware al instante
+  CONTROLADOR DE ROTORES ARDUINO LEONARDO (PIN 5) Y PROTOBJECT - GRUPO 27
+  Envío estándar de Servo: 90 = Parado, 95 a 180 = Giro hacia adelante
   =============================================================================
 */
 
@@ -51,42 +47,58 @@
   }
 
   // ---------------------------------------------------------------------------
-  // CONTROL UNIVERSAL DEL MOTOR (PIN 5)
-  // Envía todos los protocolos conocidos (ProtoArduino, WebSerial, JSON, SPEED)
+  // ENVÍO ESTÁNDAR POR WEBSERIAL A ARDUINO
+  // BaudRate estándar: 9600
+  // Valores: 90 = Parado, 95 a 180 = Giro
   // ---------------------------------------------------------------------------
-  function dispatchMotorCommand(turbineId, percent) {
-    percent = Math.max(0, Math.min(100, percent));
-    turbines[turbineId].currentSpeed = percent;
+  async function connectArduino(turbineId) {
+    if (!("serial" in navigator)) {
+      alert("Para conectar los Arduinos por USB, abre esta página en Google Chrome o Microsoft Edge.");
+      return;
+    }
 
-    // 1. Integración con ProtoArduino de Protobject (si el objeto nativo está activo)
     try {
-      if (window.Protobject && window.Protobject.Arduino) {
-        const offset = percent === 0 ? 0 : Math.round((percent / 100) * 800);
-        // ProtoArduino comúnmente usa pin 5 para servo 1
-        if (typeof window.Protobject.Arduino.servoWrite === "function") {
-          window.Protobject.Arduino.servoWrite({ pin: 5, value: offset });
-        }
-      }
-    } catch(e) {}
+      const port = await navigator.serial.requestPort();
+      await port.open({ baudRate: 9600 }); // Baudrate estándar de Arduino
 
-    // 2. Envío por Web Serial API si el Arduino está conectado por USB a Chrome
+      const textEncoder = new TextEncoderStream();
+      textEncoder.readable.pipeTo(port.writable);
+      const writer = textEncoder.writable.getWriter();
+
+      turbines[turbineId].port = port;
+      turbines[turbineId].writer = writer;
+      turbines[turbineId].isConnected = true;
+
+      // Parada inicial: 90
+      await sendAngle(turbineId, 90);
+
+      updateHUD();
+      alert(`¡Arduino para Turbina ${turbineId} (Pin 5) conectado! Pulsa '⚡ Test 2s' para verificar que gira.`);
+    } catch(err) {
+      console.error(`Error conectando Turbina ${turbineId}:`, err);
+    }
+  }
+
+  async function sendAngle(turbineId, angle) {
     const t = turbines[turbineId];
     if (t.writer && t.isConnected) {
-      const pulse = percent === 0 ? 1500 : (1545 + Math.round((percent / 100) * 375));
-      const angle = percent === 0 ? 90 : (95 + Math.round((percent / 100) * 85));
-      const offset = percent === 0 ? 0 : Math.round((percent / 100) * 800);
-
       try {
-        // Enviar formato JSON de ProtoArduino
-        t.writer.write(`{"pin":5,"value":${offset}}\n`);
-        // Enviar formato SPEED
-        t.writer.write(`SPEED:${percent.toFixed(1)}\n`);
-        // Enviar formato pulso en microsegundos
-        t.writer.write(`PULSE:${pulse}\n`);
+        await t.writer.write(`${angle}\n`);
       } catch(e) {
         console.warn(`Error enviando serial a Turbina ${turbineId}:`, e);
       }
     }
+  }
+
+  function setTurbineSpeed(turbineId, percent) {
+    percent = Math.max(0, Math.min(100, percent));
+    turbines[turbineId].currentSpeed = percent;
+
+    // Mapeo estándar de servo continuo:
+    // 0% -> 90 (detenido)
+    // 1% a 100% -> 95 a 180 (giro hacia adelante)
+    const angle = percent <= 0.5 ? 90 : Math.round(96 + (percent / 100) * 84);
+    sendAngle(turbineId, angle);
 
     updateHUD();
   }
@@ -103,53 +115,28 @@
     t.currentSpeed = 0;
     t.status = "idle";
 
-    // Enviar parada inmediata
-    dispatchMotorCommand(turbineId, 0);
+    // Detener servo con 90
+    sendAngle(turbineId, 90);
 
     const logEl = document.getElementById("proto-log-msg");
-    if (logEl) logEl.textContent = `Turbina ${turbineId} detenida (Ficha levantada).`;
+    if (logEl) logEl.textContent = `Turbina ${turbineId} detenida.`;
+    updateHUD();
   }
 
-  // ---------------------------------------------------------------------------
-  // CONEXIÓN DIRECTA POR WEBSERIAL API
-  // ---------------------------------------------------------------------------
-  async function connectArduino(turbineId) {
-    if (!("serial" in navigator)) {
-      alert("Abre esta página en Google Chrome o Microsoft Edge para conectar los Arduinos por USB.");
-      return;
-    }
-
-    try {
-      const port = await navigator.serial.requestPort();
-      await port.open({ baudRate: 115200 });
-
-      const textEncoder = new TextEncoderStream();
-      textEncoder.readable.pipeTo(port.writable);
-      const writer = textEncoder.writable.getWriter();
-
-      turbines[turbineId].port = port;
-      turbines[turbineId].writer = writer;
-      turbines[turbineId].isConnected = true;
-
-      // Parada de seguridad inicial
-      dispatchMotorCommand(turbineId, 0);
-
-      updateHUD();
-      alert(`¡Arduino Leonardo para Turbina ${turbineId} (Pin 5) conectado! Haz una prueba con el botón '⚡ Probar 2s'.`);
-    } catch(err) {
-      console.error(`Error conectando Turbina ${turbineId}:`, err);
-    }
-  }
-
-  // Prueba rápida de 2 segundos para verificar si el rotor físico gira
+  // Prueba rápida de 2 segundos al 50% de velocidad
   function testTurbine(turbineId) {
     const logEl = document.getElementById("proto-log-msg");
-    if (logEl) logEl.textContent = `Probando giro de Turbina ${turbineId} al 50%...`;
+    if (logEl) logEl.textContent = `Probando giro de Turbina ${turbineId}...`;
 
-    dispatchMotorCommand(turbineId, 50);
+    // 140 = velocidad media hacia adelante
+    sendAngle(turbineId, 140);
+    turbines[turbineId].currentSpeed = 50;
+    updateHUD();
 
     setTimeout(() => {
-      dispatchMotorCommand(turbineId, 0);
+      sendAngle(turbineId, 90);
+      turbines[turbineId].currentSpeed = 0;
+      updateHUD();
       if (logEl) logEl.textContent = `Prueba de Turbina ${turbineId} finalizada.`;
     }, 2000);
   }
@@ -212,7 +199,7 @@
 
       t.currentYear = year;
       t.currentShare = share;
-      dispatchMotorCommand(turbineId, speed);
+      setTurbineSpeed(turbineId, speed);
 
       // Notificar al celular para mostrar el año sincronizado
       try {
@@ -278,7 +265,7 @@
       display: flex;
       flex-direction: column;
       gap: 10px;
-      min-width: 330px;
+      min-width: 340px;
     `;
 
     box.innerHTML = `
@@ -286,7 +273,7 @@
         <div style="display:flex; align-items:center; gap:8px;">
           <span style="font-size:1.2rem;">💨</span>
           <div>
-            <div style="font-weight:800; font-size:0.85rem;">Turbinas Físicas Protobject</div>
+            <div style="font-weight:800; font-size:0.85rem;">Turbinas Físicas (Pin 5)</div>
             <div id="proto-log-msg" style="font-size:0.68rem; color:#f59e0b; font-weight:700;">Esperando fichas del celular...</div>
           </div>
         </div>
@@ -308,8 +295,8 @@
           </div>
         </div>
         <div style="display:flex; gap:4px;">
-          <button id="btn-test-t1" style="background:#334155; border:none; color:white; padding:4px 7px; border-radius:6px; font-size:0.68rem; font-weight:700; cursor:pointer;" title="Probar giro 2 segundos">⚡ Test 2s</button>
-          <button id="btn-conn-t1" style="background:#0f172a; border:1px solid #334155; color:#cbd5e1; padding:4px 7px; border-radius:6px; font-size:0.68rem; font-weight:700; cursor:pointer;">🔌 USB</button>
+          <button id="btn-test-t1" style="background:#334155; border:none; color:white; padding:5px 8px; border-radius:6px; font-size:0.7rem; font-weight:700; cursor:pointer;" title="Probar giro de 2 segundos">⚡ Test 2s</button>
+          <button id="btn-conn-t1" style="background:#0f172a; border:1px solid #334155; color:#cbd5e1; padding:5px 8px; border-radius:6px; font-size:0.7rem; font-weight:700; cursor:pointer;">🔌 USB</button>
         </div>
       </div>
 
@@ -328,8 +315,8 @@
           </div>
         </div>
         <div style="display:flex; gap:4px;">
-          <button id="btn-test-t2" style="background:#334155; border:none; color:white; padding:4px 7px; border-radius:6px; font-size:0.68rem; font-weight:700; cursor:pointer;" title="Probar giro 2 segundos">⚡ Test 2s</button>
-          <button id="btn-conn-t2" style="background:#0f172a; border:1px solid #334155; color:#cbd5e1; padding:4px 7px; border-radius:6px; font-size:0.68rem; font-weight:700; cursor:pointer;">🔌 USB</button>
+          <button id="btn-test-t2" style="background:#334155; border:none; color:white; padding:5px 8px; border-radius:6px; font-size:0.7rem; font-weight:700; cursor:pointer;" title="Probar giro de 2 segundos">⚡ Test 2s</button>
+          <button id="btn-conn-t2" style="background:#0f172a; border:1px solid #334155; color:#cbd5e1; padding:5px 8px; border-radius:6px; font-size:0.7rem; font-weight:700; cursor:pointer;">🔌 USB</button>
         </div>
       </div>
     `;
@@ -370,7 +357,7 @@
       el1.textContent = t1.country ? `${t1.country} (${t1.currentYear || 2000}) • ${t1.currentSpeed.toFixed(0)}% vel` : "— Reposo —";
       if (btn1 && t1.isConnected) {
         btn1.textContent = "✓ USB";
-        btn1.style.background = "rgba(239, 68, 68, 0.2)";
+        btn1.style.background = "rgba(239, 68, 68, 0.25)";
         btn1.style.borderColor = "#ef4444";
         btn1.style.color = "#f87171";
       }
@@ -381,7 +368,7 @@
       el2.textContent = t2.country ? `${t2.country} (${t2.currentYear || 2000}) • ${t2.currentSpeed.toFixed(0)}% vel` : "— Reposo —";
       if (btn2 && t2.isConnected) {
         btn2.textContent = "✓ USB";
-        btn2.style.background = "rgba(34, 197, 94, 0.2)";
+        btn2.style.background = "rgba(34, 197, 94, 0.25)";
         btn2.style.borderColor = "#22c55e";
         btn2.style.color = "#4ade80";
       }
