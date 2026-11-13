@@ -1,10 +1,11 @@
 /*
   =============================================================================
-  CONTROLADOR PROTOBJECT Y WEBSERIAL PARA TURBINAS EÓLICAS FÍSICAS (GRUPO 27)
-  - Recibe la detección de fichas físicas desde el celular (scanner.html).
-  - Orquesta la aceleración año a año (2000 -> 2025).
-  - Envía la velocidad a los Arduinos conectados por USB (Pin 5).
-  - Incluye simulador visual en pantalla por si los Arduinos aún no están enchufados.
+  CONTROLADOR PROTOBJECT Y COMUNICACIÓN CON ROTORES (PIN 5) - GRUPO 27
+  Soporta:
+  1. ProtoArduino nativo de Protobject (Protobject.Arduino.servoWrite)
+  2. Web Serial API (Chrome/Edge) compatible con cualquier firmware de Leonardo
+  3. Secuencia temporal 2000 a 2025
+  4. Botón de Test físico de 2 segundos para verificar hardware al instante
   =============================================================================
 */
 
@@ -50,54 +51,42 @@
   }
 
   // ---------------------------------------------------------------------------
-  // CONEXIÓN DIRECTA A LOS ARDUINOS POR USB (Web Serial API - Chrome/Edge)
-  // No requiere instalar software adicional en el PC
+  // CONTROL UNIVERSAL DEL MOTOR (PIN 5)
+  // Envía todos los protocolos conocidos (ProtoArduino, WebSerial, JSON, SPEED)
   // ---------------------------------------------------------------------------
-  async function connectArduino(turbineId) {
-    if (!("serial" in navigator)) {
-      alert("Tu navegador no soporta Web Serial API. Abre la página en Google Chrome o Microsoft Edge.");
-      return;
-    }
-
-    try {
-      const port = await navigator.serial.requestPort();
-      await port.open({ baudRate: 115200 });
-
-      const textEncoder = new TextEncoderStream();
-      textEncoder.readable.pipeTo(port.writable);
-      const writer = textEncoder.writable.getWriter();
-
-      turbines[turbineId].port = port;
-      turbines[turbineId].writer = writer;
-      turbines[turbineId].isConnected = true;
-
-      // Comando de reposo inicial
-      await sendSerial(turbineId, "STOP");
-
-      updateHUD();
-      alert(`¡Arduino Leonardo para Turbina ${turbineId} (Pin 5) enlazado con éxito!`);
-    } catch(err) {
-      console.error(`Error conectando Turbina ${turbineId}:`, err);
-    }
-  }
-
-  async function sendSerial(turbineId, cmd) {
-    const t = turbines[turbineId];
-    if (t.writer && t.isConnected) {
-      try {
-        await t.writer.write(`${cmd}\n`);
-      } catch(e) {
-        console.error(`Error enviando comando a Turbina ${turbineId}:`, e);
-      }
-    }
-  }
-
-  function setTurbineSpeed(turbineId, percent) {
+  function dispatchMotorCommand(turbineId, percent) {
     percent = Math.max(0, Math.min(100, percent));
     turbines[turbineId].currentSpeed = percent;
 
-    // Formatos de comando compatibles con firmware custom o estándar
-    sendSerial(turbineId, `SPEED:${percent.toFixed(1)}`);
+    // 1. Integración con ProtoArduino de Protobject (si el objeto nativo está activo)
+    try {
+      if (window.Protobject && window.Protobject.Arduino) {
+        const offset = percent === 0 ? 0 : Math.round((percent / 100) * 800);
+        // ProtoArduino comúnmente usa pin 5 para servo 1
+        if (typeof window.Protobject.Arduino.servoWrite === "function") {
+          window.Protobject.Arduino.servoWrite({ pin: 5, value: offset });
+        }
+      }
+    } catch(e) {}
+
+    // 2. Envío por Web Serial API si el Arduino está conectado por USB a Chrome
+    const t = turbines[turbineId];
+    if (t.writer && t.isConnected) {
+      const pulse = percent === 0 ? 1500 : (1545 + Math.round((percent / 100) * 375));
+      const angle = percent === 0 ? 90 : (95 + Math.round((percent / 100) * 85));
+      const offset = percent === 0 ? 0 : Math.round((percent / 100) * 800);
+
+      try {
+        // Enviar formato JSON de ProtoArduino
+        t.writer.write(`{"pin":5,"value":${offset}}\n`);
+        // Enviar formato SPEED
+        t.writer.write(`SPEED:${percent.toFixed(1)}\n`);
+        // Enviar formato pulso en microsegundos
+        t.writer.write(`PULSE:${pulse}\n`);
+      } catch(e) {
+        console.warn(`Error enviando serial a Turbina ${turbineId}:`, e);
+      }
+    }
 
     updateHUD();
   }
@@ -113,8 +102,56 @@
     t.currentShare = 0;
     t.currentSpeed = 0;
     t.status = "idle";
-    sendSerial(turbineId, "STOP");
-    updateHUD();
+
+    // Enviar parada inmediata
+    dispatchMotorCommand(turbineId, 0);
+
+    const logEl = document.getElementById("proto-log-msg");
+    if (logEl) logEl.textContent = `Turbina ${turbineId} detenida (Ficha levantada).`;
+  }
+
+  // ---------------------------------------------------------------------------
+  // CONEXIÓN DIRECTA POR WEBSERIAL API
+  // ---------------------------------------------------------------------------
+  async function connectArduino(turbineId) {
+    if (!("serial" in navigator)) {
+      alert("Abre esta página en Google Chrome o Microsoft Edge para conectar los Arduinos por USB.");
+      return;
+    }
+
+    try {
+      const port = await navigator.serial.requestPort();
+      await port.open({ baudRate: 115200 });
+
+      const textEncoder = new TextEncoderStream();
+      textEncoder.readable.pipeTo(port.writable);
+      const writer = textEncoder.writable.getWriter();
+
+      turbines[turbineId].port = port;
+      turbines[turbineId].writer = writer;
+      turbines[turbineId].isConnected = true;
+
+      // Parada de seguridad inicial
+      dispatchMotorCommand(turbineId, 0);
+
+      updateHUD();
+      alert(`¡Arduino Leonardo para Turbina ${turbineId} (Pin 5) conectado! Haz una prueba con el botón '⚡ Probar 2s'.`);
+    } catch(err) {
+      console.error(`Error conectando Turbina ${turbineId}:`, err);
+    }
+  }
+
+  // Prueba rápida de 2 segundos para verificar si el rotor físico gira
+  function testTurbine(turbineId) {
+    const logEl = document.getElementById("proto-log-msg");
+    if (logEl) logEl.textContent = `Probando giro de Turbina ${turbineId} al 50%...`;
+
+    dispatchMotorCommand(turbineId, 50);
+
+    setTimeout(() => {
+      dispatchMotorCommand(turbineId, 0);
+      if (logEl) logEl.textContent = `Prueba de Turbina ${turbineId} finalizada.`;
+    }, 2000);
   }
 
   // ---------------------------------------------------------------------------
@@ -144,21 +181,23 @@
       return;
     }
 
+    const logEl = document.getElementById("proto-log-msg");
+    if (logEl) logEl.textContent = `¡Ficha en ${countryName}! Acelerando Turbina ${turbineId} (2000 → 2025)...`;
+
     let index = 0;
     const totalSteps = years.length;
 
     runStep();
 
-    // Cada ~350ms avanza un año de la historia
     t.timerId = setInterval(() => {
       index++;
       if (index < totalSteps) {
         runStep();
       } else {
-        // Al llegar a 2025 se mantiene girando en estado continuo
         clearInterval(t.timerId);
         t.timerId = null;
         t.status = "holding";
+        if (logEl) logEl.textContent = `${countryName} (2025): Manteniendo régimen fijo a ${t.currentSpeed.toFixed(0)}% vel.`;
         updateHUD();
       }
     }, 350);
@@ -167,15 +206,15 @@
       const year = years[index];
       const share = windShares[index] !== undefined ? windShares[index] : windShares[windShares.length - 1];
 
-      // Mapeo: 35% de energía eólica = 100% velocidad de rotación
+      // Mapeo: 35% de energía eólica = 100% velocidad
       const MAX_SHARE_REF = 35.0;
       const speed = Math.max(0, Math.min(100, (share / MAX_SHARE_REF) * 100));
 
       t.currentYear = year;
       t.currentShare = share;
-      setTurbineSpeed(turbineId, speed);
+      dispatchMotorCommand(turbineId, speed);
 
-      // Notificar al celular vía Protobject para reflejar el año en la pantalla del celular
+      // Notificar al celular para mostrar el año sincronizado
       try {
         if (window.Protobject && window.Protobject.Core) {
           Protobject.Core.send({
@@ -191,12 +230,13 @@
   }
 
   // ---------------------------------------------------------------------------
-  // RECEPCIÓN DE PROTOBJECT DESDE EL ESCÁNER DEL CELULAR
+  // RECEPCIÓN DE PROTOBJECT DESDE EL CELULAR
   // ---------------------------------------------------------------------------
   function initProtobjectListener() {
     try {
       if (window.Protobject && window.Protobject.Core) {
         Protobject.Core.onReceived(function(data) {
+          console.log("[PROTOBJECT RECIBIDO]:", data);
           if (!data || !data.turbine) return;
           const tId = parseInt(data.turbine, 10);
 
@@ -205,7 +245,6 @@
           } else if (data.action === "set_country" && data.country) {
             startTurbineTimeline(tId, data.country);
 
-            // Enfocar el mapa D3 en pantalla si existe la función
             if (typeof window.selectCountry === "function") {
               window.selectCountry(data.country);
             }
@@ -213,12 +252,12 @@
         });
       }
     } catch(err) {
-      console.warn("Protobject listener error:", err);
+      console.warn("Error en Protobject onReceived:", err);
     }
   }
 
   // ---------------------------------------------------------------------------
-  // PANEL FLOTANTE EN PANTALLA: SIMULADOR VISUAL + CONEXIÓN USB
+  // PANEL FLOTANTE EN PANTALLA PRINCIPAL
   // ---------------------------------------------------------------------------
   function createFloatingUI() {
     const box = document.createElement("div");
@@ -228,7 +267,7 @@
       bottom: 20px;
       right: 20px;
       z-index: 10000;
-      background: rgba(15, 23, 42, 0.95);
+      background: rgba(15, 23, 42, 0.96);
       backdrop-filter: blur(12px);
       border: 1px solid #334155;
       border-radius: 14px;
@@ -238,8 +277,8 @@
       box-shadow: 0 10px 35px rgba(0,0,0,0.6);
       display: flex;
       flex-direction: column;
-      gap: 12px;
-      min-width: 320px;
+      gap: 10px;
+      min-width: 330px;
     `;
 
     box.innerHTML = `
@@ -248,44 +287,50 @@
           <span style="font-size:1.2rem;">💨</span>
           <div>
             <div style="font-weight:800; font-size:0.85rem;">Turbinas Físicas Protobject</div>
-            <div style="font-size:0.68rem; color:#94a3b8;">Fichas físicas en mapa impreso</div>
+            <div id="proto-log-msg" style="font-size:0.68rem; color:#f59e0b; font-weight:700;">Esperando fichas del celular...</div>
           </div>
         </div>
-        <a href="scanner.html" target="_blank" style="background:#0284c7; color:white; text-decoration:none; padding:4px 9px; border-radius:6px; font-size:0.72rem; font-weight:bold;">📱 Escáner</a>
+        <a href="scanner.html" target="_blank" style="background:#0284c7; color:white; text-decoration:none; padding:4px 8px; border-radius:6px; font-size:0.7rem; font-weight:bold;">📱 Escáner</a>
       </div>
 
       <!-- Turbina 1 -->
       <div style="background:#1e293b; padding:10px 12px; border-radius:10px; border-left:4px solid #ef4444; display:flex; justify-content:space-between; align-items:center;">
         <div style="display:flex; align-items:center; gap:10px;">
-          <div id="rotor-icon-t1" style="width:26px; height:26px; display:inline-block; transform-origin:center; transition:transform 0.1s linear;">
+          <div id="rotor-icon-t1" style="width:26px; height:26px; display:inline-block; transform-origin:center;">
             <svg viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.2">
               <circle cx="12" cy="12" r="3" fill="#ef4444"/>
               <path d="M12 9V2M12 15v7M15 12h7M9 12H2M14.1 9.9l4.95-4.95M9.9 14.1l-4.95 4.95"/>
             </svg>
           </div>
           <div>
-            <div style="font-size:0.7rem; color:#f87171; font-weight:800;">TURBINA 1 (Ficha Roja)</div>
+            <div style="font-size:0.7rem; color:#f87171; font-weight:800;">TURBINA 1 (Ficha 1 Roja)</div>
             <div id="ui-t1-info" style="font-size:0.82rem; font-weight:700;">— Reposo —</div>
           </div>
         </div>
-        <button id="btn-conn-t1" style="background:#0f172a; border:1px solid #334155; color:#cbd5e1; padding:5px 9px; border-radius:6px; font-size:0.7rem; font-weight:700; cursor:pointer;">🔌 Conectar USB</button>
+        <div style="display:flex; gap:4px;">
+          <button id="btn-test-t1" style="background:#334155; border:none; color:white; padding:4px 7px; border-radius:6px; font-size:0.68rem; font-weight:700; cursor:pointer;" title="Probar giro 2 segundos">⚡ Test 2s</button>
+          <button id="btn-conn-t1" style="background:#0f172a; border:1px solid #334155; color:#cbd5e1; padding:4px 7px; border-radius:6px; font-size:0.68rem; font-weight:700; cursor:pointer;">🔌 USB</button>
+        </div>
       </div>
 
       <!-- Turbina 2 -->
       <div style="background:#1e293b; padding:10px 12px; border-radius:10px; border-left:4px solid #22c55e; display:flex; justify-content:space-between; align-items:center;">
         <div style="display:flex; align-items:center; gap:10px;">
-          <div id="rotor-icon-t2" style="width:26px; height:26px; display:inline-block; transform-origin:center; transition:transform 0.1s linear;">
+          <div id="rotor-icon-t2" style="width:26px; height:26px; display:inline-block; transform-origin:center;">
             <svg viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.2">
               <circle cx="12" cy="12" r="3" fill="#22c55e"/>
               <path d="M12 9V2M12 15v7M15 12h7M9 12H2M14.1 9.9l4.95-4.95M9.9 14.1l-4.95 4.95"/>
             </svg>
           </div>
           <div>
-            <div style="font-size:0.7rem; color:#4ade80; font-weight:800;">TURBINA 2 (Ficha Verde)</div>
+            <div style="font-size:0.7rem; color:#4ade80; font-weight:800;">TURBINA 2 (Ficha 2 Verde)</div>
             <div id="ui-t2-info" style="font-size:0.82rem; font-weight:700;">— Reposo —</div>
           </div>
         </div>
-        <button id="btn-conn-t2" style="background:#0f172a; border:1px solid #334155; color:#cbd5e1; padding:5px 9px; border-radius:6px; font-size:0.7rem; font-weight:700; cursor:pointer;">🔌 Conectar USB</button>
+        <div style="display:flex; gap:4px;">
+          <button id="btn-test-t2" style="background:#334155; border:none; color:white; padding:4px 7px; border-radius:6px; font-size:0.68rem; font-weight:700; cursor:pointer;" title="Probar giro 2 segundos">⚡ Test 2s</button>
+          <button id="btn-conn-t2" style="background:#0f172a; border:1px solid #334155; color:#cbd5e1; padding:4px 7px; border-radius:6px; font-size:0.68rem; font-weight:700; cursor:pointer;">🔌 USB</button>
+        </div>
       </div>
     `;
 
@@ -293,8 +338,10 @@
 
     document.getElementById("btn-conn-t1").onclick = () => connectArduino(1);
     document.getElementById("btn-conn-t2").onclick = () => connectArduino(2);
+    document.getElementById("btn-test-t1").onclick = () => testTurbine(1);
+    document.getElementById("btn-test-t2").onclick = () => testTurbine(2);
 
-    // Animación visual continua de aspas en pantalla según velocidad actual
+    // Animación visual continua de aspas en pantalla
     let angle1 = 0, angle2 = 0;
     function animateBlades() {
       if (turbines[1].currentSpeed > 0) {
@@ -322,7 +369,7 @@
       const t1 = turbines[1];
       el1.textContent = t1.country ? `${t1.country} (${t1.currentYear || 2000}) • ${t1.currentSpeed.toFixed(0)}% vel` : "— Reposo —";
       if (btn1 && t1.isConnected) {
-        btn1.textContent = "✓ USB Enlazado";
+        btn1.textContent = "✓ USB";
         btn1.style.background = "rgba(239, 68, 68, 0.2)";
         btn1.style.borderColor = "#ef4444";
         btn1.style.color = "#f87171";
@@ -333,7 +380,7 @@
       const t2 = turbines[2];
       el2.textContent = t2.country ? `${t2.country} (${t2.currentYear || 2000}) • ${t2.currentSpeed.toFixed(0)}% vel` : "— Reposo —";
       if (btn2 && t2.isConnected) {
-        btn2.textContent = "✓ USB Enlazado";
+        btn2.textContent = "✓ USB";
         btn2.style.background = "rgba(34, 197, 94, 0.2)";
         btn2.style.borderColor = "#22c55e";
         btn2.style.color = "#4ade80";

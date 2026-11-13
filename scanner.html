@@ -49,7 +49,7 @@
 
     .brand {
       font-weight: 800;
-      font-size: 0.88rem;
+      font-size: 0.85rem;
       display: flex;
       align-items: center;
       gap: 6px;
@@ -84,6 +84,7 @@
       overflow: hidden;
     }
 
+    /* Video de la cámara cubriendo el fondo */
     #camera-video {
       position: absolute;
       width: 100%;
@@ -91,33 +92,48 @@
       object-fit: cover;
     }
 
-    /* Silueta del mapa superpuesta para alinear con el papel en la mesa */
-    #map-overlay {
-      position: absolute;
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-      pointer-events: none;
-      opacity: 0.32;
-      filter: drop-shadow(0 0 10px rgba(0, 40, 130, 0.6));
+    /* MARCO DE CALIBRACIÓN GEOMÉTRICA CON ASPECTO EXACTO DEL MAPA (876 / 1024) */
+    .map-frame-box {
+      position: relative;
+      width: 90vw;
+      max-width: 420px;
+      aspect-ratio: 876 / 1024;
+      border: 2px dashed rgba(56, 189, 248, 0.85);
+      border-radius: 12px;
+      box-shadow: 0 0 25px rgba(0, 0, 0, 0.8), inset 0 0 15px rgba(56, 189, 248, 0.2);
+      overflow: hidden;
       z-index: 10;
     }
 
-    /* Canvas donde se dibujan las miras sobre las fichas reales */
+    /* Silueta del mapa dentro del marco exacto */
+    #map-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: fill;
+      opacity: 0.35;
+      pointer-events: none;
+      filter: drop-shadow(0 0 10px rgba(0, 40, 130, 0.6));
+      z-index: 1;
+    }
+
+    /* Canvas donde se procesa la visión y se dibujan las miras */
     #tracking-canvas {
       position: absolute;
       top: 0;
       left: 0;
       width: 100%;
       height: 100%;
-      z-index: 20;
+      z-index: 2;
       cursor: crosshair;
     }
 
     /* Controles Superiores Flotantes */
     .top-controls {
       position: absolute;
-      top: 8px;
+      top: 6px;
       left: 8px;
       right: 8px;
       display: flex;
@@ -128,12 +144,12 @@
     }
 
     .alignment-hint {
-      background: rgba(15, 23, 42, 0.88);
+      background: rgba(15, 23, 42, 0.9);
       backdrop-filter: blur(6px);
       border: 1px solid rgba(255,255,255,0.15);
-      padding: 5px 12px;
+      padding: 4px 10px;
       border-radius: 20px;
-      font-size: 0.7rem;
+      font-size: 0.68rem;
       font-weight: 700;
       color: #e2e8f0;
       pointer-events: auto;
@@ -146,10 +162,10 @@
     }
 
     .tool-btn {
-      background: rgba(15, 23, 42, 0.88);
+      background: rgba(15, 23, 42, 0.9);
       border: 1px solid #334155;
       color: white;
-      padding: 5px 8px;
+      padding: 4px 8px;
       border-radius: 8px;
       font-size: 0.68rem;
       font-weight: 700;
@@ -163,10 +179,10 @@
     /* Control de Opacidad */
     .opacity-widget {
       position: absolute;
-      top: 44px;
+      top: 40px;
       right: 8px;
       background: rgba(15, 23, 42, 0.85);
-      padding: 4px 8px;
+      padding: 3px 8px;
       border-radius: 8px;
       z-index: 30;
       display: flex;
@@ -175,7 +191,7 @@
       font-size: 0.65rem;
       color: #94a3b8;
     }
-    .opacity-widget input { width: 55px; }
+    .opacity-widget input { width: 50px; }
 
     /* Mini Monitor de Depuración de Visión */
     #debug-monitor {
@@ -192,17 +208,17 @@
       box-shadow: 0 4px 15px rgba(0,0,0,0.5);
     }
 
-    /* Modal / Toast de Calibración */
+    /* Banner de Calibración */
     .calib-banner {
       position: absolute;
-      bottom: 12px;
-      left: 14px;
-      right: 14px;
-      background: rgba(30, 41, 59, 0.95);
+      bottom: 10px;
+      left: 12px;
+      right: 12px;
+      background: rgba(30, 41, 59, 0.98);
       border: 2px solid #f59e0b;
       padding: 8px 12px;
       border-radius: 10px;
-      font-size: 0.75rem;
+      font-size: 0.72rem;
       font-weight: 700;
       color: #fbbf24;
       text-align: center;
@@ -283,21 +299,24 @@
   </header>
 
   <!-- Área de Visión por Computador -->
-  <main class="viewport" id="viewport-container">
+  <main class="viewport">
     <video id="camera-video" autoplay playsinline muted></video>
     
-    <!-- Silueta del mapa superpuesta para alinear con la mesa -->
-    <img id="map-overlay" src="mapa_impreso.jpg" alt="Alineación del Mapa">
-    
-    <!-- Canvas de dibujo interactivo -->
-    <canvas id="tracking-canvas"></canvas>
+    <!-- Marco de Aspecto Exacto del Mapa Impreso (876 / 1024) -->
+    <div class="map-frame-box" id="map-frame">
+      <!-- Silueta del mapa superpuesta para alinear con la mesa -->
+      <img id="map-overlay" src="mapa_impreso.jpg" alt="Alineación del Mapa">
+      <!-- Canvas donde se dibujan las miras y se detectan las fichas -->
+      <canvas id="tracking-canvas"></canvas>
+    </div>
 
     <!-- Barra de Controles Superiores -->
     <div class="top-controls">
       <div class="alignment-hint" id="main-hint">
-        📐 Alinea la silueta azul con el mapa impreso
+        📐 Encuadra el mapa físico dentro del marco celeste
       </div>
       <div class="tools-bar">
+        <button class="tool-btn" id="btn-toggle-labels" onclick="toggleCountryLabels()">🏷️ Países</button>
         <button class="tool-btn" id="btn-toggle-debug" onclick="toggleDebugMonitor()">👁️ Ver Visión</button>
         <button class="tool-btn" id="btn-calib-t1" onclick="startCalibration(1)">🎯 Calibrar 🔴</button>
         <button class="tool-btn" id="btn-calib-t2" onclick="startCalibration(2)">🎯 Calibrar 🟢</button>
@@ -307,15 +326,15 @@
     <!-- Deslizador de Opacidad de Silueta -->
     <div class="opacity-widget">
       <span>Silueta:</span>
-      <input type="range" id="opacity-slider" min="5" max="80" value="32" oninput="changeMapOpacity(this.value)">
+      <input type="range" id="opacity-slider" min="5" max="85" value="35" oninput="changeMapOpacity(this.value)">
     </div>
 
-    <!-- Mini Monitor de Depuración (Muestra lo que capta el detector) -->
+    <!-- Mini Monitor de Depuración de Visión -->
     <canvas id="debug-monitor" width="100" height="100"></canvas>
 
     <!-- Banner de Calibración -->
     <div class="calib-banner" id="calib-banner">
-      👉 Toca la ficha en la pantalla para calibrar su color exacto
+      👉 Toca la ficha en la pantalla para memorizar su color exacto
     </div>
   </main>
 
@@ -345,43 +364,44 @@
   </section>
 
   <!-- Canvas interno de análisis a alta velocidad -->
-  <canvas id="proc-canvas" width="240" height="240" style="display:none;"></canvas>
+  <canvas id="proc-canvas" width="220" height="256" style="display:none;"></canvas>
 
   <script>
-    // Coordenadas normalizadas (X, Y) y radio r de cada país en mapa_impreso.jpg (876x1024)
+    // Coordenadas normalizadas (X, Y) y radio r verificadas en mapa_impreso.jpg (876x1024)
     const COUNTRIES = [
-      { name: "Canada", flag: "🇨🇦", x: 0.40, y: 0.18, r: 0.20, wind: "8.0%" },
-      { name: "United States", flag: "🇺🇸", x: 0.35, y: 0.34, r: 0.13, wind: "10.3%" },
-      { name: "Mexico", flag: "🇲🇽", x: 0.29, y: 0.47, r: 0.08, wind: "5.6%" },
-      { name: "Cuba", flag: "🇨🇺", x: 0.46, y: 0.48, r: 0.05, wind: "0.4%" },
-      { name: "Guatemala", flag: "🇬🇹", x: 0.33, y: 0.53, r: 0.035, wind: "2.5%" },
-      { name: "Honduras", flag: "🇭🇳", x: 0.36, y: 0.53, r: 0.035, wind: "9.2%" },
-      { name: "Nicaragua", flag: "🇳🇮", x: 0.37, y: 0.56, r: 0.035, wind: "14.8%" },
-      { name: "Costa Rica", flag: "🇨🇷", x: 0.39, y: 0.58, r: 0.030, wind: "13.1%" },
-      { name: "Panama", flag: "🇵🇦", x: 0.42, y: 0.60, r: 0.035, wind: "7.1%" },
-      { name: "Colombia", flag: "🇨🇴", x: 0.47, y: 0.64, r: 0.070, wind: "0.2%" },
-      { name: "Venezuela", flag: "🇻🇪", x: 0.55, y: 0.63, r: 0.070, wind: "0.1%" },
-      { name: "Ecuador", flag: "🇪🇨", x: 0.43, y: 0.70, r: 0.050, wind: "0.4%" },
-      { name: "Peru", flag: "🇵🇪", x: 0.46, y: 0.76, r: 0.080, wind: "3.7%" },
-      { name: "Bolivia", flag: "🇧🇴", x: 0.53, y: 0.82, r: 0.070, wind: "2.0%" },
-      { name: "Brazil", flag: "🇧🇷", x: 0.65, y: 0.75, r: 0.140, wind: "15.2%" },
-      { name: "Paraguay", flag: "🇵🇾", x: 0.56, y: 0.86, r: 0.055, wind: "0.0%" },
-      { name: "Chile", flag: "🇨🇱", x: 0.49, y: 0.92, r: 0.055, wind: "13.1%" },
-      { name: "Argentina", flag: "🇦🇷", x: 0.54, y: 0.93, r: 0.080, wind: "12.2%" },
-      { name: "Uruguay", flag: "🇺🇾", x: 0.60, y: 0.92, r: 0.050, wind: "40.6%" }
+      { name: "Canada", flag: "🇨🇦", x: 0.350, y: 0.150, r: 0.200, wind: "8.0%" },
+      { name: "United States", flag: "🇺🇸", x: 0.350, y: 0.280, r: 0.130, wind: "10.3%" },
+      { name: "Mexico", flag: "🇲🇽", x: 0.315, y: 0.420, r: 0.080, wind: "5.6%" },
+      { name: "Cuba", flag: "🇨🇺", x: 0.463, y: 0.420, r: 0.050, wind: "0.4%" },
+      { name: "Guatemala", flag: "🇬🇹", x: 0.380, y: 0.470, r: 0.035, wind: "2.5%" },
+      { name: "Honduras", flag: "🇭🇳", x: 0.403, y: 0.472, r: 0.035, wind: "9.2%" },
+      { name: "Nicaragua", flag: "🇳🇮", x: 0.420, y: 0.500, r: 0.035, wind: "14.8%" },
+      { name: "Costa Rica", flag: "🇨🇷", x: 0.430, y: 0.520, r: 0.030, wind: "13.1%" },
+      { name: "Panama", flag: "🇵🇦", x: 0.460, y: 0.530, r: 0.035, wind: "7.1%" },
+      { name: "Colombia", flag: "🇨🇴", x: 0.500, y: 0.580, r: 0.065, wind: "0.2%" },
+      { name: "Venezuela", flag: "🇻🇪", x: 0.570, y: 0.560, r: 0.070, wind: "0.1%" },
+      { name: "Ecuador", flag: "🇪🇨", x: 0.470, y: 0.620, r: 0.045, wind: "0.4%" },
+      { name: "Peru", flag: "🇵🇪", x: 0.490, y: 0.670, r: 0.075, wind: "3.7%" },
+      { name: "Bolivia", flag: "🇧🇴", x: 0.560, y: 0.730, r: 0.065, wind: "2.0%" },
+      { name: "Brazil", flag: "🇧🇷", x: 0.650, y: 0.700, r: 0.150, wind: "15.2%" },
+      { name: "Paraguay", flag: "🇵🇾", x: 0.580, y: 0.770, r: 0.050, wind: "0.0%" },
+      { name: "Uruguay", flag: "🇺🇾", x: 0.620, y: 0.820, r: 0.045, wind: "40.6%" },
+      { name: "Chile", flag: "🇨🇱", x: 0.550, y: 0.860, r: 0.045, wind: "13.1%" },
+      { name: "Argentina", flag: "🇦🇷", x: 0.585, y: 0.860, r: 0.075, wind: "12.2%" }
     ];
 
-    // Parámetros de color HSV iniciales altamente tolerantes
-    let hsvT1 = { hMin1: 0, hMax1: 25, hMin2: 330, hMax2: 360, sMin: 0.28, vMin: 0.20 }; // Rojo
-    let hsvT2 = { hMin: 65, hMax: 175, sMin: 0.22, vMin: 0.20 };                        // Verde
+    // Rango de color HSV tolerante
+    let hsvT1 = { hMin1: 0, hMax1: 25, hMin2: 330, hMax2: 360, sMin: 0.25, vMin: 0.20 }; // Rojo
+    let hsvT2 = { hMin: 65, hMax: 175, sMin: 0.20, vMin: 0.18 };                        // Verde
 
     let currentT1Country = null;
     let currentT2Country = null;
     let t1MissingFrames = 0;
     let t2MissingFrames = 0;
 
-    let calibratingToken = 0; // 0: ninguna, 1: Ficha 1, 2: Ficha 2
+    let calibratingToken = 0;
     let showDebugMonitor = false;
+    let showCountryLabels = true;
 
     function changeMapOpacity(val) {
       document.getElementById("map-overlay").style.opacity = (val / 100);
@@ -393,56 +413,70 @@
       document.getElementById("btn-toggle-debug").classList.toggle("active", showDebugMonitor);
     }
 
-    // Modo Calibración con un toque
+    function toggleCountryLabels() {
+      showCountryLabels = !showCountryLabels;
+      document.getElementById("btn-toggle-labels").classList.toggle("active", showCountryLabels);
+    }
+
     function startCalibration(tokenNum) {
       calibratingToken = tokenNum;
       document.getElementById("calib-banner").style.display = "block";
-      document.getElementById("calib-banner").textContent = `👉 Toca sobre la Ficha ${tokenNum} (${tokenNum === 1 ? 'Roja' : 'Verde'}) en la pantalla para calibrar su color`;
+      document.getElementById("calib-banner").textContent = `👉 Toca la Ficha ${tokenNum} (${tokenNum === 1 ? 'Roja' : 'Verde'}) en la pantalla para calibrar su color`;
     }
 
-    // Escuchar clic/toque en el canvas para calibrar
+    // Permitir calibrar O seleccionar país manualmente al tocar la pantalla
     document.getElementById("tracking-canvas").addEventListener("pointerdown", (e) => {
-      if (calibratingToken === 0) return;
-
       const rect = e.target.getBoundingClientRect();
       const clickX = e.clientX - rect.left;
       const clickY = e.clientY - rect.top;
 
-      // Obtener píxel del canvas de procesamiento
-      const procCanvas = document.getElementById("proc-canvas");
-      const ctx = procCanvas.getContext("2d");
-      const pxX = Math.floor((clickX / rect.width) * 240);
-      const pxY = Math.floor((clickY / rect.height) * 240);
+      const normX = clickX / rect.width;
+      const normY = clickY / rect.height;
 
-      const p = ctx.getImageData(Math.max(0, Math.min(239, pxX)), Math.max(0, Math.min(239, pxY)), 1, 1).data;
-      const [h, s, v] = rgbToHsv(p[0], p[1], p[2]);
+      // Si estaba en modo calibración de color:
+      if (calibratingToken !== 0) {
+        const procCanvas = document.getElementById("proc-canvas");
+        const ctx = procCanvas.getContext("2d");
+        const pxX = Math.floor(normX * 220);
+        const pxY = Math.floor(normY * 256);
+        const p = ctx.getImageData(Math.max(0, Math.min(219, pxX)), Math.max(0, Math.min(255, pxY)), 1, 1).data;
+        const [h, s, v] = rgbToHsv(p[0], p[1], p[2]);
 
-      if (calibratingToken === 1) {
-        // Calibrar Ficha 1
-        hsvT1 = {
-          hMin1: Math.max(0, (h - 30 + 360) % 360),
-          hMax1: (h + 30) % 360,
-          hMin2: 340, hMax2: 360,
-          sMin: Math.max(0.18, s * 0.65),
-          vMin: Math.max(0.15, v * 0.65)
-        };
-        alert(`¡Ficha 1 (Roja) calibrada exitosamente! Hue: ${Math.round(h)}°`);
-      } else if (calibratingToken === 2) {
-        // Calibrar Ficha 2
-        hsvT2 = {
-          hMin: Math.max(0, h - 35),
-          hMax: Math.min(360, h + 35),
-          sMin: Math.max(0.18, s * 0.65),
-          vMin: Math.max(0.15, v * 0.65)
-        };
-        alert(`¡Ficha 2 (Verde) calibrada exitosamente! Hue: ${Math.round(h)}°`);
+        if (calibratingToken === 1) {
+          hsvT1 = {
+            hMin1: Math.max(0, (h - 35 + 360) % 360),
+            hMax1: (h + 35) % 360,
+            hMin2: 330, hMax2: 360,
+            sMin: Math.max(0.15, s * 0.55),
+            vMin: Math.max(0.12, v * 0.55)
+          };
+          alert(`¡Ficha 1 (Roja) calibrada! Tono: ${Math.round(h)}°`);
+        } else if (calibratingToken === 2) {
+          hsvT2 = {
+            hMin: Math.max(0, h - 35),
+            hMax: Math.min(360, h + 35),
+            sMin: Math.max(0.15, s * 0.55),
+            vMin: Math.max(0.12, v * 0.55)
+          };
+          alert(`¡Ficha 2 (Verde) calibrada! Tono: ${Math.round(h)}°`);
+        }
+        calibratingToken = 0;
+        document.getElementById("calib-banner").style.display = "none";
+        return;
       }
 
-      calibratingToken = 0;
-      document.getElementById("calib-banner").style.display = "none";
+      // Si no estaba calibrando: tocar sobre un país permite fijar la Ficha 1 o Ficha 2 como rescate asistido
+      const tapped = findCountryAt(normX, normY);
+      if (tapped) {
+        // Alternar entre Ficha 1 y Ficha 2
+        if (!currentT1Country || currentT1Country !== tapped.name) {
+          handleToken1Detected(tapped);
+        } else {
+          handleToken2Detected(tapped);
+        }
+      }
     });
 
-    // Conversión de color RGB a HSV ultrarrápida
     function rgbToHsv(r, g, b) {
       r /= 255; g /= 255; b /= 255;
       const max = Math.max(r, g, b), min = Math.min(r, g, b);
@@ -462,7 +496,6 @@
       return [h * 360, s, v];
     }
 
-    // Inicializar Cámara Trasera
     async function initCamera() {
       const video = document.getElementById("camera-video");
       try {
@@ -476,49 +509,62 @@
         };
       } catch (err) {
         console.error("Error al iniciar cámara:", err);
-        document.getElementById("main-hint").textContent = "Permiso de cámara denegado o no disponible.";
+        document.getElementById("main-hint").textContent = "Permiso de cámara denegado.";
       }
     }
 
-    // Bucle de Detección de Fichas Físicas a 30 FPS
     function processLoop() {
       const video = document.getElementById("camera-video");
       const overlayCanvas = document.getElementById("tracking-canvas");
       const procCanvas = document.getElementById("proc-canvas");
-      const mapImg = document.getElementById("map-overlay");
+      const mapFrame = document.getElementById("map-frame");
 
       if (video.readyState === video.HAVE_ENOUGH_DATA) {
-        // Redimensionar canvas de dibujo
-        overlayCanvas.width = video.clientWidth;
-        overlayCanvas.height = video.clientHeight;
+        // Redimensionar canvas de tracking al tamaño exacto de .map-frame
+        overlayCanvas.width = mapFrame.clientWidth;
+        overlayCanvas.height = mapFrame.clientHeight;
         const ctxOverlay = overlayCanvas.getContext("2d");
         ctxOverlay.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
 
-        // Extraer frame escalado a 240x240 para análisis
-        const ctxProc = procCanvas.getContext("2d");
-        ctxProc.drawImage(video, 0, 0, 240, 240);
-        const frameData = ctxProc.getImageData(0, 0, 240, 240).data;
+        // Si las etiquetas de países están activadas, dibujarlas sutilmente en el mapa
+        if (showCountryLabels) {
+          drawCountryMapHints(ctxOverlay, overlayCanvas.width, overlayCanvas.height);
+        }
 
-        // Canvas de depuración
+        // Extraer los píxeles de la cámara recortados exactamente a la región del map-frame
+        const frameRect = mapFrame.getBoundingClientRect();
+        const videoRect = video.getBoundingClientRect();
+
+        // Coordenadas relativas del marco dentro del video
+        const sx = ((frameRect.left - videoRect.left) / videoRect.width) * video.videoWidth;
+        const sy = ((frameRect.top - videoRect.top) / videoRect.height) * video.videoHeight;
+        const sw = (frameRect.width / videoRect.width) * video.videoWidth;
+        const sh = (frameRect.height / videoRect.height) * video.videoHeight;
+
+        const ctxProc = procCanvas.getContext("2d");
+        try {
+          ctxProc.drawImage(video, Math.max(0, sx), Math.max(0, sy), Math.max(10, sw), Math.max(10, sh), 0, 0, 220, 256);
+        } catch(e) {
+          ctxProc.drawImage(video, 0, 0, 220, 256);
+        }
+        const frameData = ctxProc.getImageData(0, 0, 220, 256).data;
+
+        // Monitor de depuración
         let ctxDebug = null;
-        let debugImageData = null;
+        let debugImg = null;
         if (showDebugMonitor) {
           const debugCanvas = document.getElementById("debug-monitor");
           ctxDebug = debugCanvas.getContext("2d");
-          debugImageData = ctxDebug.createImageData(100, 100);
+          debugImg = ctxDebug.createImageData(100, 100);
         }
 
-        // Obtener la posición exacta en pantalla que ocupa la silueta del mapa
-        const mapRect = mapImg.getBoundingClientRect();
-        const viewRect = overlayCanvas.getBoundingClientRect();
-
+        // Búsqueda de conglomerados (blobs) de Ficha 1 (Roja) y Ficha 2 (Verde)
         let sumX1 = 0, sumY1 = 0, count1 = 0;
         let sumX2 = 0, sumY2 = 0, count2 = 0;
 
-        // Recorrido de píxeles con salto de 2 para fluidez máxima
-        for (let y = 0; y < 240; y += 2) {
-          for (let x = 0; x < 240; x += 2) {
-            const i = (y * 240 + x) * 4;
+        for (let y = 0; y < 256; y += 2) {
+          for (let x = 0; x < 220; x += 2) {
+            const i = (y * 220 + x) * 4;
             const r = frameData[i];
             const g = frameData[i + 1];
             const b = frameData[i + 2];
@@ -528,97 +574,78 @@
             let isRed = false;
             let isGreen = false;
 
-            // Detección Ficha 1: Rango Rojo HSV
+            // Ficha 1: Rojo puro (Hue cerca de 0° o 360°, saturación visible)
             if (s >= hsvT1.sMin && v >= hsvT1.vMin) {
               if (h <= hsvT1.hMax1 || h >= hsvT1.hMin2) {
-                // Confirmación adicional contra blancos/piel
-                if (r > g + 25 && r > b + 25) {
+                if (r > g + 20 && r > b + 20) {
                   isRed = true;
-                  sumX1 += x;
-                  sumY1 += y;
-                  count1++;
+                  sumX1 += x; sumY1 += y; count1++;
                 }
               }
             }
 
-            // Detección Ficha 2: Rango Verde HSV
+            // Ficha 2: Verde puro (Hue entre 65° y 175°)
             if (s >= hsvT2.sMin && v >= hsvT2.vMin) {
               if (h >= hsvT2.hMin && h <= hsvT2.hMax) {
                 if (g > r + 15 && g > b + 15) {
                   isGreen = true;
-                  sumX2 += x;
-                  sumY2 += y;
-                  count2++;
+                  sumX2 += x; sumY2 += y; count2++;
                 }
               }
             }
 
-            // Si el monitor de depuración está activo, dibujar en miniatura
-            if (debugImageData && y < 100 && x < 100) {
+            if (debugImg && y < 100 && x < 100) {
               const di = (y * 100 + x) * 4;
               if (isRed) {
-                debugImageData.data[di] = 255; debugImageData.data[di+1] = 0; debugImageData.data[di+2] = 0; debugImageData.data[di+3] = 255;
+                debugImg.data[di] = 255; debugImg.data[di+1] = 0; debugImg.data[di+2] = 0; debugImg.data[di+3] = 255;
               } else if (isGreen) {
-                debugImageData.data[di] = 0; debugImageData.data[di+1] = 255; debugImageData.data[di+2] = 0; debugImageData.data[di+3] = 255;
+                debugImg.data[di] = 0; debugImg.data[di+1] = 255; debugImg.data[di+2] = 0; debugImg.data[di+3] = 255;
               } else {
-                debugImageData.data[di] = r/4; debugImageData.data[di+1] = g/4; debugImageData.data[di+2] = b/4; debugImageData.data[di+3] = 255;
+                debugImg.data[di] = r/4; debugImg.data[di+1] = g/4; debugImg.data[di+2] = b/4; debugImg.data[di+3] = 255;
               }
             }
           }
         }
 
-        if (ctxDebug && debugImageData) {
-          ctxDebug.putImageData(debugImageData, 0, 0);
+        if (ctxDebug && debugImg) {
+          ctxDebug.putImageData(debugImg, 0, 0);
         }
 
         // --- EVALUAR FICHA 1 (ROJA) ---
-        if (count1 >= 10) {
+        // Requiere al menos 8 píxeles muestreados para filtrar ruido aislado
+        if (count1 >= 8) {
           t1MissingFrames = 0;
-          const screenX = ((sumX1 / count1) / 240) * overlayCanvas.width;
-          const screenY = ((sumY1 / count1) / 240) * overlayCanvas.height;
+          const normX = (sumX1 / count1) / 220;
+          const normY = (sumY1 / count1) / 256;
+          const screenX = normX * overlayCanvas.width;
+          const screenY = normY * overlayCanvas.height;
 
-          // Dibujar mira sobre la ficha física real
           drawSight(ctxOverlay, screenX, screenY, "#ef4444", "FICHA 1 (T1)");
 
-          // Mapear coordenada a la silueta del mapa
-          const normX = (screenX - mapRect.left) / mapRect.width;
-          const normY = (screenY - mapRect.top) / mapRect.height;
-
-          if (normX >= 0 && normX <= 1 && normY >= 0 && normY <= 1) {
-            const detected = findCountryAt(normX, normY);
-            handleToken1Detected(detected);
-          } else {
-            document.getElementById("t1-state-badge").textContent = "Fuera del mapa";
-          }
+          const detected = findCountryAt(normX, normY);
+          handleToken1Detected(detected);
         } else {
           t1MissingFrames++;
-          if (t1MissingFrames > 25) { // ~0.8s sin detección
+          if (t1MissingFrames > 35) { // ~1.1s sin detección
             handleToken1Lost();
           }
         }
 
         // --- EVALUAR FICHA 2 (VERDE) ---
-        if (count2 >= 10) {
+        if (count2 >= 8) {
           t2MissingFrames = 0;
-          const screenX = ((sumX2 / count2) / 240) * overlayCanvas.width;
-          const screenY = ((sumY2 / count2) / 240) * overlayCanvas.height;
+          const normX = (sumX2 / count2) / 220;
+          const normY = (sumY2 / count2) / 256;
+          const screenX = normX * overlayCanvas.width;
+          const screenY = normY * overlayCanvas.height;
 
-          // Dibujar mira sobre la ficha física real
           drawSight(ctxOverlay, screenX, screenY, "#22c55e", "FICHA 2 (T2)");
 
-          // Mapear coordenada a la silueta del mapa
-          const normX = (screenX - mapRect.left) / mapRect.width;
-          const normY = (screenY - mapRect.top) / mapRect.height;
-
-          if (normX >= 0 && normX <= 1 && normY >= 0 && normY <= 1) {
-            const detected = findCountryAt(normX, normY);
-            handleToken2Detected(detected);
-          } else {
-            document.getElementById("t2-state-badge").textContent = "Fuera del mapa";
-          }
+          const detected = findCountryAt(normX, normY);
+          handleToken2Detected(detected);
         } else {
           t2MissingFrames++;
-          if (t2MissingFrames > 25) {
+          if (t2MissingFrames > 35) {
             handleToken2Lost();
           }
         }
@@ -627,7 +654,26 @@
       requestAnimationFrame(processLoop);
     }
 
-    // Encuentra el país más cercano al punto normalizado dentro del mapa
+    // Dibuja sutilmente en el mapa los puntos de los países para confirmación visual
+    function drawCountryMapHints(ctx, w, h) {
+      ctx.save();
+      for (const c of COUNTRIES) {
+        const cx = c.x * w;
+        const cy = c.y * h;
+
+        ctx.beginPath();
+        ctx.arc(cx, cy, 3, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(56, 189, 248, 0.4)";
+        ctx.fill();
+
+        ctx.fillStyle = "rgba(226, 232, 240, 0.55)";
+        ctx.font = "bold 8px 'Plus Jakarta Sans'";
+        ctx.textAlign = "center";
+        ctx.fillText(c.name, cx, cy - 5);
+      }
+      ctx.restore();
+    }
+
     function findCountryAt(nx, ny) {
       let closest = null;
       let minDistance = 999;
@@ -645,34 +691,33 @@
       return closest;
     }
 
-    // Dibuja una mira tecnológica sobre la ficha física detectada
     function drawSight(ctx, x, y, color, label) {
       ctx.save();
       ctx.beginPath();
-      ctx.arc(x, y, 24, 0, Math.PI * 2);
+      ctx.arc(x, y, 22, 0, Math.PI * 2);
       ctx.strokeStyle = color;
       ctx.lineWidth = 3.5;
       ctx.stroke();
 
       ctx.beginPath();
-      ctx.moveTo(x - 30, y); ctx.lineTo(x + 30, y);
-      ctx.moveTo(x, y - 30); ctx.lineTo(x, y + 30);
+      ctx.moveTo(x - 28, y); ctx.lineTo(x + 28, y);
+      ctx.moveTo(x, y - 28); ctx.lineTo(x, y + 28);
       ctx.strokeStyle = "rgba(255,255,255,0.8)";
       ctx.lineWidth = 1.5;
       ctx.stroke();
 
-      ctx.fillStyle = "rgba(15, 23, 42, 0.9)";
-      ctx.fillRect(x - 45, y - 44, 90, 18);
+      ctx.fillStyle = "rgba(15, 23, 42, 0.92)";
+      ctx.fillRect(x - 45, y - 42, 90, 18);
       ctx.strokeStyle = color;
-      ctx.strokeRect(x - 45, y - 44, 90, 18);
+      ctx.strokeRect(x - 45, y - 42, 90, 18);
       ctx.fillStyle = "#ffffff";
       ctx.font = "bold 9px 'Plus Jakarta Sans'";
       ctx.textAlign = "center";
-      ctx.fillText(label, x, y - 31);
+      ctx.fillText(label, x, y - 29);
       ctx.restore();
     }
 
-    // --- DISPARADORES DE EVENTOS PROTOBJECT ---
+    // --- EVENTOS PROTOBJECT HACIA INDEX.HTML ---
     function handleToken1Detected(country) {
       const nameEl = document.getElementById("t1-country-name");
       const metaEl = document.getElementById("t1-meta");
@@ -691,7 +736,7 @@
           sendToProtobject(1, "set_country", country.name);
         }
       } else {
-        badgeEl.textContent = "En océano / borde";
+        badgeEl.textContent = "Sobre el mapa";
       }
     }
 
@@ -726,7 +771,7 @@
           sendToProtobject(2, "set_country", country.name);
         }
       } else {
-        badgeEl.textContent = "En océano / borde";
+        badgeEl.textContent = "Sobre el mapa";
       }
     }
 
@@ -751,14 +796,13 @@
             action: action,
             country: countryName
           }).to("index.html");
-          console.log(`[PROTOBJECT] Ficha Física ${turbineId}: ${action} ${countryName || ''}`);
+          console.log(`[PROTOBJECT] Enviado T${turbineId}: ${action} ${countryName || ''}`);
         }
       } catch(e) {
         console.warn("Protobject error:", e);
       }
     }
 
-    // Escuchar sincronización de años desde la pantalla grande
     try {
       if (window.Protobject && window.Protobject.Core) {
         Protobject.Core.onReceived(function(data) {
