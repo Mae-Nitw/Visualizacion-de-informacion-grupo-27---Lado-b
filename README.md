@@ -1,1 +1,1 @@
-# Visualizacion-de-informacion-grupo-27---Lado-b
+# Proyecto-vis-info-grupo-27
