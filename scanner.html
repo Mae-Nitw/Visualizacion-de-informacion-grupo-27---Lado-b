@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Escáner Protobject - Turbinas Eólicas</title>
+  <title>Escáner de Fichas Físicas - Protobject</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=JetBrains+Mono:wght@600;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;700;800&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
   
   <!-- Framework Oficial de Protobject -->
   <script src="https://app.protobject.com/framework/p.js"></script>
@@ -16,490 +16,558 @@
     :root {
       --bg: #090d16;
       --card: #131a29;
-      --t1: #0ea5e9; /* Turbina 1: Cyan / Azul */
-      --t2: #10b981; /* Turbina 2: Verde esmeralda */
+      --t1: #ef4444; /* Ficha 1: Roja */
+      --t2: #22c55e; /* Ficha 2: Verde */
       --text: #f8fafc;
       --muted: #94a3b8;
       --border: #1e293b;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    
     body {
       font-family: 'Plus Jakarta Sans', sans-serif;
       background: var(--bg);
       color: var(--text);
-      min-height: 100vh;
+      height: 100vh;
       display: flex;
       flex-direction: column;
+      overflow: hidden;
     }
 
-    /* Cabecera */
+    /* Barra Superior */
     .header {
-      background: rgba(19, 26, 41, 0.9);
+      background: rgba(19, 26, 41, 0.95);
       backdrop-filter: blur(8px);
-      padding: 12px 16px;
+      padding: 10px 14px;
       display: flex;
       justify-content: space-between;
       align-items: center;
       border-bottom: 1px solid var(--border);
-      position: sticky;
-      top: 0;
       z-index: 50;
     }
 
     .brand {
       font-weight: 800;
-      font-size: 0.95rem;
+      font-size: 0.9rem;
       display: flex;
       align-items: center;
       gap: 6px;
     }
     .brand span {
-      background: linear-gradient(135deg, var(--t1), var(--t2));
+      background: linear-gradient(135deg, #ef4444, #22c55e);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
     }
 
-    .proto-badge {
+    .status-pill {
       font-size: 0.72rem;
       font-weight: 700;
-      padding: 3px 10px;
-      border-radius: 20px;
-      background: rgba(16, 185, 129, 0.15);
-      color: #34d399;
+      padding: 3px 8px;
+      border-radius: 12px;
+      background: rgba(34, 197, 94, 0.15);
+      color: #4ade80;
       display: flex;
       align-items: center;
       gap: 5px;
     }
-    .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    .status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 
-    /* Selector de Ficha */
-    .token-selector {
-      display: flex;
-      gap: 8px;
-      padding: 10px 14px;
-      background: #0f172a;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .token-btn {
-      flex: 1;
-      padding: 10px 12px;
-      border-radius: 10px;
-      border: 2px solid transparent;
-      font-weight: 800;
-      font-size: 0.85rem;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      transition: all 0.15s ease;
-    }
-
-    .token-btn.t1 {
-      background: rgba(14, 165, 233, 0.12);
-      color: #38bdf8;
-    }
-    .token-btn.t1.active {
-      background: var(--t1);
-      color: white;
-      border-color: #38bdf8;
-      box-shadow: 0 0 12px rgba(14, 165, 233, 0.4);
-    }
-
-    .token-btn.t2 {
-      background: rgba(16, 185, 129, 0.12);
-      color: #34d399;
-    }
-    .token-btn.t2.active {
-      background: var(--t2);
-      color: white;
-      border-color: #34d399;
-      box-shadow: 0 0 12px rgba(16, 185, 129, 0.4);
-    }
-
-    /* Pestañas Cámara / Mapa */
-    .mode-bar {
-      display: flex;
-      background: #090d16;
-      padding: 6px 12px;
-      gap: 6px;
-    }
-    .mode-btn {
-      flex: 1;
-      background: transparent;
-      border: 1px solid var(--border);
-      color: var(--muted);
-      padding: 6px;
-      border-radius: 8px;
-      font-weight: 700;
-      font-size: 0.78rem;
-      cursor: pointer;
-    }
-    .mode-btn.active {
-      background: #1e293b;
-      color: var(--text);
-      border-color: #334155;
-    }
-
-    /* Área de Visualización / Cámara */
-    .view-area {
+    /* Contenedor de Cámara y Superposición del Mapa */
+    .viewport {
       position: relative;
+      flex: 1;
       background: #000;
-      min-height: 220px;
-      max-height: 38vh;
       display: flex;
-      align-items: center;
       justify-content: center;
+      align-items: center;
       overflow: hidden;
     }
 
     #camera-video {
+      position: absolute;
       width: 100%;
       height: 100%;
       object-fit: cover;
     }
 
-    .cam-overlay {
+    /* Imagen del mapa superpuesta con baja opacidad ("Ghost map") para alinear la cámara */
+    #map-overlay {
       position: absolute;
-      top: 10px;
-      background: rgba(15, 23, 42, 0.85);
-      padding: 5px 12px;
-      border-radius: 16px;
-      font-size: 0.72rem;
-      font-weight: 700;
-      color: #cbd5e1;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      pointer-events: none;
+      opacity: 0.32; /* Opacidad suave para alinear con la mesa */
+      filter: drop-shadow(0 0 10px rgba(0, 40, 130, 0.6));
+      transition: opacity 0.2s ease;
+      z-index: 10;
+    }
+
+    /* Canvas donde se procesa la visión y se dibujan las miras */
+    #tracking-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 20;
       pointer-events: none;
     }
 
-    /* Grid de Países */
-    .countries-container {
-      flex: 1;
-      overflow-y: auto;
-      padding: 12px;
-      background: #0b0f19;
-    }
-
-    .section-title {
-      font-size: 0.75rem;
-      font-weight: 800;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      margin-bottom: 8px;
-    }
-
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 8px;
-    }
-
-    .country-card {
-      background: #131a29;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 10px;
-      display: flex;
-      flex-direction: column;
-      gap: 3px;
-      cursor: pointer;
-      text-align: left;
-      transition: transform 0.1s ease;
-    }
-    .country-card:active { transform: scale(0.96); }
-
-    .country-card .c-name {
+    /* Instrucción en Pantalla */
+    .alignment-hint {
+      position: absolute;
+      top: 10px;
+      background: rgba(15, 23, 42, 0.88);
+      backdrop-filter: blur(6px);
+      border: 1px solid rgba(255,255,255,0.15);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 0.72rem;
       font-weight: 700;
-      font-size: 0.85rem;
-      color: var(--text);
+      color: #e2e8f0;
+      z-index: 30;
+      text-align: center;
     }
-    .country-card .c-info {
+
+    /* Control de Opacidad del Mapa */
+    .opacity-control {
+      position: absolute;
+      top: 45px;
+      right: 12px;
+      background: rgba(15, 23, 42, 0.85);
+      padding: 4px 8px;
+      border-radius: 8px;
+      z-index: 30;
+      display: flex;
+      align-items: center;
+      gap: 6px;
       font-size: 0.68rem;
-      color: var(--muted);
+      color: #94a3b8;
+    }
+    .opacity-control input {
+      width: 60px;
     }
 
-    .country-card.sel-t1 {
-      border-color: var(--t1);
-      background: rgba(14, 165, 233, 0.18);
-    }
-    .country-card.sel-t2 {
-      border-color: var(--t2);
-      background: rgba(16, 185, 129, 0.18);
-    }
-
-    /* Panel HUD Inferior */
+    /* HUD INFERIOR: ESTADO FÍSICO DE LAS DOS FICHAS Y TURBINAS */
     .hud {
       background: var(--card);
       border-top: 1px solid var(--border);
-      padding: 10px 12px;
+      padding: 10px 14px;
       display: flex;
       flex-direction: column;
       gap: 8px;
+      z-index: 40;
     }
 
     .hud-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 8px;
+      gap: 10px;
     }
 
-    .hud-card {
+    .token-card {
       background: #0f172a;
-      border-radius: 8px;
-      padding: 8px;
-      border-left: 3px solid #334155;
+      border-radius: 10px;
+      padding: 8px 10px;
+      border: 1px solid #1e293b;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
     }
-    .hud-card.t1 { border-left-color: var(--t1); }
-    .hud-card.t2 { border-left-color: var(--t2); }
+    .token-card.t1 { border-left: 4px solid var(--t1); }
+    .token-card.t2 { border-left: 4px solid var(--t2); }
 
-    .hud-header {
+    .token-header {
+      font-size: 0.68rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      font-size: 0.7rem;
+    }
+    .t1 .token-header { color: var(--t1); }
+    .t2 .token-header { color: var(--t2); }
+
+    .token-country {
+      font-size: 0.95rem;
       font-weight: 800;
-    }
-    .t1 .hud-header { color: var(--t1); }
-    .t2 .hud-header { color: var(--t2); }
-
-    .hud-btn-del {
-      background: #1e293b;
-      border: none;
-      color: #94a3b8;
-      border-radius: 4px;
-      padding: 1px 5px;
-      font-size: 0.65rem;
-      cursor: pointer;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
-    .hud-country {
-      font-weight: 800;
-      font-size: 0.88rem;
-      margin: 2px 0;
-    }
-
-    .hud-meta {
+    .token-meta {
       font-family: 'JetBrains Mono', monospace;
-      font-size: 0.75rem;
-      color: #f59e0b;
+      font-size: 0.72rem;
+      color: var(--muted);
       font-weight: 700;
     }
+    .token-meta.active { color: #f59e0b; }
   </style>
 </head>
 <body>
 
-  <!-- Cabecera -->
+  <!-- Barra Superior -->
   <header class="header">
     <div class="brand">
-      <span>💨 Protobject Turbinas</span>
+      <span>💨 Escáner de Fichas Físicas</span>
     </div>
-    <div class="proto-badge">
-      <span class="dot"></span>
-      <span>Protobject Activo</span>
+    <div class="status-pill">
+      <span class="status-dot"></span>
+      <span id="proto-status">Protobject Enlazado</span>
     </div>
   </header>
 
-  <!-- Selector de Ficha a colocar -->
-  <div class="token-selector">
-    <button id="btn-t1" class="token-btn t1 active" onclick="selectToken(1)">
-      🔵 Ficha 1 (Turbina 1)
-    </button>
-    <button id="btn-t2" class="token-btn t2" onclick="selectToken(2)">
-      🟢 Ficha 2 (Turbina 2)
-    </button>
-  </div>
-
-  <!-- Barra de Modo: Cámara vs Táctil -->
-  <div class="mode-bar">
-    <button id="mode-cam" class="mode-btn active" onclick="setMode('cam')">📷 Cámara Escáner</button>
-    <button id="mode-grid" class="mode-btn" onclick="setMode('grid')">🗺️ Selector de Países</button>
-  </div>
-
-  <!-- Vista Cámara -->
-  <div class="view-area" id="view-camera">
+  <!-- Área de Visión por Computador -->
+  <main class="viewport">
     <video id="camera-video" autoplay playsinline muted></video>
-    <div class="cam-overlay">🎯 Apunta al mapa físico sobre cada país</div>
-  </div>
+    
+    <!-- Mapa semitransparente superpuesto para alinear con la mesa -->
+    <img id="map-overlay" src="mapa_impreso.jpg" alt="Alineación del Mapa">
+    
+    <!-- Canvas de procesamiento y dibujo de miras -->
+    <canvas id="tracking-canvas"></canvas>
 
-  <!-- Lista de Países de América -->
-  <div class="countries-container" id="countries-list">
-    <div class="section-title">Colocar Ficha Seleccionada en:</div>
-    <div class="grid" id="grid-countries"></div>
-  </div>
+    <div class="alignment-hint">
+      📐 Alinea la silueta azul con tu mapa físico impreso
+    </div>
 
-  <!-- HUD Inferior Comparativo -->
-  <div class="hud">
+    <!-- Ajuste rápido de transparencia de la silueta -->
+    <div class="opacity-control">
+      <span>Silueta:</span>
+      <input type="range" id="opacity-slider" min="5" max="80" value="32" oninput="changeMapOpacity(this.value)">
+    </div>
+  </main>
+
+  <!-- HUD Inferior en Tiempo Real -->
+  <section class="hud">
     <div class="hud-grid">
-      <!-- Turbina 1 -->
-      <div class="hud-card t1">
-        <div class="hud-header">
-          <span>TURBINA 1 (Pin 5)</span>
-          <button class="hud-btn-del" onclick="removeCountry(1)">✕</button>
+      <!-- Ficha Física 1 (Turbina 1) -->
+      <div class="token-card t1">
+        <div class="token-header">
+          <span>🔴 Ficha 1 Física (T1)</span>
+          <span id="t1-state-badge">Buscando...</span>
         </div>
-        <div class="hud-country" id="hud-t1-name">— Vacía —</div>
-        <div class="hud-meta" id="hud-t1-meta">2000–2025: Detenida</div>
+        <div class="token-country" id="t1-country-name">— No detectada —</div>
+        <div class="token-meta" id="t1-meta">Mueve la ficha sobre el mapa</div>
       </div>
 
-      <!-- Turbina 2 -->
-      <div class="hud-card t2">
-        <div class="hud-header">
-          <span>TURBINA 2 (Pin 5)</span>
-          <button class="hud-btn-del" onclick="removeCountry(2)">✕</button>
+      <!-- Ficha Física 2 (Turbina 2) -->
+      <div class="token-card t2">
+        <div class="token-header">
+          <span>🟢 Ficha 2 Física (T2)</span>
+          <span id="t2-state-badge">Buscando...</span>
         </div>
-        <div class="hud-country" id="hud-t2-name">— Vacía —</div>
-        <div class="hud-meta" id="hud-t2-meta">2000–2025: Detenida</div>
+        <div class="token-country" id="t2-country-name">— No detectada —</div>
+        <div class="token-meta" id="t2-meta">Mueve la ficha sobre el mapa</div>
       </div>
     </div>
-  </div>
+  </section>
+
+  <!-- Canvas interno oculto para procesamiento rápido -->
+  <canvas id="proc-canvas" width="320" height="320" style="display:none;"></canvas>
 
   <script>
+    // Coordenadas normalizadas (X, Y) y radio de cada país en la imagen mapa_impreso.jpg (876x1024)
     const COUNTRIES = [
-      { name: "Argentina", flag: "🇦🇷", wind: "12.2% viento" },
-      { name: "Bolivia", flag: "🇧🇴", wind: "2.0% viento" },
-      { name: "Brazil", flag: "🇧🇷", wind: "15.2% viento" },
-      { name: "Canada", flag: "🇨🇦", wind: "8.0% viento" },
-      { name: "Chile", flag: "🇨🇱", wind: "13.1% viento" },
-      { name: "Colombia", flag: "🇨🇴", wind: "0.2% viento" },
-      { name: "Costa Rica", flag: "🇨🇷", wind: "13.1% viento" },
-      { name: "Cuba", flag: "🇨🇺", wind: "0.4% viento" },
-      { name: "Ecuador", flag: "🇪🇨", wind: "0.4% viento" },
-      { name: "Guatemala", flag: "🇬🇹", wind: "2.5% viento" },
-      { name: "Honduras", flag: "🇭🇳", wind: "9.2% viento" },
-      { name: "Mexico", flag: "🇲🇽", wind: "5.6% viento" },
-      { name: "Nicaragua", flag: "🇳🇮", wind: "14.8% viento" },
-      { name: "Panama", flag: "🇵🇦", wind: "7.1% viento" },
-      { name: "Paraguay", flag: "🇵🇾", wind: "0.0% viento" },
-      { name: "Peru", flag: "🇵🇪", wind: "3.7% viento" },
-      { name: "United States", flag: "🇺🇸", wind: "10.3% viento" },
-      { name: "Uruguay", flag: "🇺🇾", wind: "40.6% viento" },
-      { name: "Venezuela", flag: "🇻🇪", wind: "0.1% viento" }
+      { name: "Canada", flag: "🇨🇦", x: 0.40, y: 0.18, r: 0.16, wind: "8.0%" },
+      { name: "United States", flag: "🇺🇸", x: 0.34, y: 0.33, r: 0.10, wind: "10.3%" },
+      { name: "Mexico", flag: "🇲🇽", x: 0.28, y: 0.47, r: 0.065, wind: "5.6%" },
+      { name: "Cuba", flag: "🇨🇺", x: 0.46, y: 0.49, r: 0.045, wind: "0.4%" },
+      { name: "Guatemala", flag: "🇬🇹", x: 0.33, y: 0.53, r: 0.025, wind: "2.5%" },
+      { name: "Honduras", flag: "🇭🇳", x: 0.36, y: 0.53, r: 0.025, wind: "9.2%" },
+      { name: "Nicaragua", flag: "🇳🇮", x: 0.37, y: 0.56, r: 0.025, wind: "14.8%" },
+      { name: "Costa Rica", flag: "🇨🇷", x: 0.39, y: 0.58, r: 0.022, wind: "13.1%" },
+      { name: "Panama", flag: "🇵🇦", x: 0.42, y: 0.60, r: 0.025, wind: "7.1%" },
+      { name: "Colombia", flag: "🇨🇴", x: 0.47, y: 0.64, r: 0.055, wind: "0.2%" },
+      { name: "Venezuela", flag: "🇻🇪", x: 0.55, y: 0.63, r: 0.060, wind: "0.1%" },
+      { name: "Ecuador", flag: "🇪🇨", x: 0.43, y: 0.70, r: 0.038, wind: "0.4%" },
+      { name: "Peru", flag: "🇵🇪", x: 0.46, y: 0.76, r: 0.065, wind: "3.7%" },
+      { name: "Bolivia", flag: "🇧🇴", x: 0.53, y: 0.82, r: 0.055, wind: "2.0%" },
+      { name: "Brazil", flag: "🇧🇷", x: 0.65, y: 0.75, r: 0.125, wind: "15.2%" },
+      { name: "Paraguay", flag: "🇵🇾", x: 0.56, y: 0.86, r: 0.045, wind: "0.0%" },
+      { name: "Chile", flag: "🇨🇱", x: 0.49, y: 0.92, r: 0.045, wind: "13.1%" },
+      { name: "Argentina", flag: "🇦🇷", x: 0.54, y: 0.93, r: 0.065, wind: "12.2%" },
+      { name: "Uruguay", flag: "🇺🇾", x: 0.60, y: 0.92, r: 0.038, wind: "40.6%" }
     ];
 
-    let activeToken = 1;
-    let assignedT1 = null;
-    let assignedT2 = null;
-    let camStream = null;
+    let currentT1Country = null;
+    let currentT2Country = null;
+    let t1MissingFrames = 0;
+    let t2MissingFrames = 0;
 
-    function selectToken(num) {
-      activeToken = num;
-      document.getElementById("btn-t1").classList.toggle("active", num === 1);
-      document.getElementById("btn-t2").classList.toggle("active", num === 2);
+    function changeMapOpacity(val) {
+      document.getElementById("map-overlay").style.opacity = (val / 100);
     }
 
-    function setMode(mode) {
-      document.getElementById("mode-cam").classList.toggle("active", mode === "cam");
-      document.getElementById("mode-grid").classList.toggle("active", mode === "grid");
-      const camView = document.getElementById("view-camera");
-      camView.style.display = mode === "cam" ? "flex" : "none";
-
-      if (mode === "cam") {
-        startCam();
-      } else {
-        stopCam();
-      }
-    }
-
-    async function startCam() {
+    // Inicializar Cámara Trasera
+    async function initCamera() {
+      const video = document.getElementById("camera-video");
       try {
-        if (camStream) stopCam();
-        camStream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: "environment" } }
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: false
         });
-        document.getElementById("camera-video").srcObject = camStream;
-      } catch(e) {
-        console.warn("Cámara no disponible:", e);
-      }
-    }
-
-    function stopCam() {
-      if (camStream) {
-        camStream.getTracks().forEach(t => t.stop());
-        camStream = null;
-      }
-    }
-
-    // ENVIAR ACCIÓN MEDIANTE PROTOBJECT AL COMPUTADOR
-    function placeTokenOnCountry(countryName) {
-      if (activeToken === 1) {
-        assignedT1 = countryName;
-      } else {
-        assignedT2 = countryName;
-      }
-
-      updateUI();
-
-      // Enviar mensaje directo con Protobject hacia index.html
-      try {
-        Protobject.Core.send({
-          turbine: activeToken,
-          action: "set_country",
-          country: countryName
-        }).to("index.html");
+        video.srcObject = stream;
+        video.onloadedmetadata = () => {
+          requestAnimationFrame(processLoop);
+        };
       } catch (err) {
-        console.error("Error enviando por Protobject:", err);
+        console.error("Error al iniciar cámara:", err);
       }
     }
 
-    function removeCountry(turbineNum) {
-      if (turbineNum === 1) assignedT1 = null;
-      if (turbineNum === 2) assignedT2 = null;
+    // Bucle de Detección de Fichas Físicas a 30 FPS
+    function processLoop() {
+      const video = document.getElementById("camera-video");
+      const overlayCanvas = document.getElementById("tracking-canvas");
+      const procCanvas = document.getElementById("proc-canvas");
 
-      updateUI();
+      if (video.readyState === video.HAVE_ENOUGH_DATA) {
+        // Ajustar tamaño del canvas de dibujo al tamaño visual del viewport
+        overlayCanvas.width = video.clientWidth;
+        overlayCanvas.height = video.clientHeight;
+        const ctxOverlay = overlayCanvas.getContext("2d");
+        ctxOverlay.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
 
-      try {
-        Protobject.Core.send({
-          turbine: turbineNum,
-          action: "remove"
-        }).to("index.html");
-      } catch(err) {
-        console.error("Error removiendo por Protobject:", err);
-      }
-    }
+        // Renderizar frame escalado a 320x320 para análisis ultrarrápido
+        const ctxProc = procCanvas.getContext("2d");
+        ctxProc.drawImage(video, 0, 0, 320, 320);
+        const frameData = ctxProc.getImageData(0, 0, 320, 320).data;
 
-    function updateUI() {
-      document.getElementById("hud-t1-name").textContent = assignedT1 ? `🇦 ${assignedT1}` : "— Vacía —";
-      document.getElementById("hud-t2-name").textContent = assignedT2 ? `🇧 ${assignedT2}` : "— Vacía —";
+        // Búsqueda de centroide de Ficha 1 (Roja) y Ficha 2 (Verde)
+        let sumX1 = 0, sumY1 = 0, count1 = 0;
+        let sumX2 = 0, sumY2 = 0, count2 = 0;
 
-      document.querySelectorAll(".country-card").forEach(c => {
-        const name = c.dataset.name;
-        c.classList.toggle("sel-t1", name === assignedT1);
-        c.classList.toggle("sel-t2", name === assignedT2);
-      });
-    }
+        for (let y = 0; y < 320; y += 3) {
+          for (let x = 0; x < 320; x += 3) {
+            const i = (y * 320 + x) * 4;
+            const r = frameData[i];
+            const g = frameData[i + 1];
+            const b = frameData[i + 2];
 
-    // Recibir sincronización en tiempo real desde index.html vía Protobject
-    try {
-      Protobject.Core.onReceived(function(data) {
-        if (data && data.type === "SYNC") {
-          const tId = data.turbine;
-          const metaEl = document.getElementById(`hud-t${tId}-meta`);
-          if (metaEl) {
-            metaEl.textContent = `Año: ${data.year} • ${data.share}% eólico`;
+            // Detección Ficha 1: Rojo brillante intenso
+            if (r > 130 && r > g * 1.55 && r > b * 1.55) {
+              sumX1 += x;
+              sumY1 += y;
+              count1++;
+            }
+            // Detección Ficha 2: Verde brillante intenso
+            else if (g > 110 && g > r * 1.35 && g > b * 1.25) {
+              sumX2 += x;
+              sumY2 += y;
+              count2++;
+            }
           }
         }
-      });
+
+        // --- EVALUAR FICHA FÍSICA 1 (ROJA) ---
+        if (count1 > 18) {
+          t1MissingFrames = 0;
+          const normX = (sumX1 / count1) / 320;
+          const normY = (sumY1 / count1) / 320;
+          const screenX = normX * overlayCanvas.width;
+          const screenY = normY * overlayCanvas.height;
+
+          // Dibujar mira visual interactiva sobre la ficha física real
+          drawMarkerSight(ctxOverlay, screenX, screenY, "#ef4444", "FICHA 1 (T1)");
+
+          // Encontrar qué país está debajo
+          const detectedCountry = findCountryAt(normX, normY);
+          handleToken1Detected(detectedCountry);
+        } else {
+          t1MissingFrames++;
+          if (t1MissingFrames > 30) { // ~1 segundo sin verse
+            handleToken1Lost();
+          }
+        }
+
+        // --- EVALUAR FICHA FÍSICA 2 (VERDE) ---
+        if (count2 > 18) {
+          t2MissingFrames = 0;
+          const normX = (sumX2 / count2) / 320;
+          const normY = (sumY2 / count2) / 320;
+          const screenX = normX * overlayCanvas.width;
+          const screenY = normY * overlayCanvas.height;
+
+          // Dibujar mira visual interactiva sobre la ficha física real
+          drawMarkerSight(ctxOverlay, screenX, screenY, "#22c55e", "FICHA 2 (T2)");
+
+          // Encontrar qué país está debajo
+          const detectedCountry = findCountryAt(normX, normY);
+          handleToken2Detected(detectedCountry);
+        } else {
+          t2MissingFrames++;
+          if (t2MissingFrames > 30) { // ~1 segundo sin verse
+            handleToken2Lost();
+          }
+        }
+      }
+
+      requestAnimationFrame(processLoop);
+    }
+
+    // Calcula qué país contiene la coordenada normalizada (x, y)
+    function findCountryAt(nx, ny) {
+      let closest = null;
+      let minDistance = 999;
+
+      for (const c of COUNTRIES) {
+        const dx = nx - c.x;
+        const dy = ny - c.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist <= c.r && dist < minDistance) {
+          minDistance = dist;
+          closest = c;
+        }
+      }
+      return closest;
+    }
+
+    // Dibujar mira gráfica circular sobre la ficha física en el video
+    function drawMarkerSight(ctx, x, y, color, label) {
+      ctx.save();
+      // Anillo pulsante
+      ctx.beginPath();
+      ctx.arc(x, y, 26, 0, Math.PI * 2);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 4;
+      ctx.stroke();
+
+      // Cruz de precisión
+      ctx.beginPath();
+      ctx.moveTo(x - 34, y); ctx.lineTo(x + 34, y);
+      ctx.moveTo(x, y - 34); ctx.lineTo(x, y + 34);
+      ctx.strokeStyle = "rgba(255,255,255,0.7)";
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // Etiqueta flotante
+      ctx.fillStyle = "rgba(15, 23, 42, 0.85)";
+      ctx.fillRect(x - 50, y - 48, 100, 20);
+      ctx.strokeStyle = color;
+      ctx.strokeRect(x - 50, y - 48, 100, 20);
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "bold 10px 'Plus Jakarta Sans'";
+      ctx.textAlign = "center";
+      ctx.fillText(label, x, y - 34);
+      ctx.restore();
+    }
+
+    // --- GESTIÓN DE EVENTOS DE FICHA 1 HACIA PROTOBJECT ---
+    function handleToken1Detected(country) {
+      const nameEl = document.getElementById("t1-country-name");
+      const metaEl = document.getElementById("t1-meta");
+      const badgeEl = document.getElementById("t1-state-badge");
+
+      if (country) {
+        badgeEl.textContent = "✓ Detectada";
+        badgeEl.style.color = "#4ade80";
+
+        if (currentT1Country !== country.name) {
+          currentT1Country = country.name;
+          nameEl.textContent = `${country.flag} ${country.name}`;
+          metaEl.textContent = `Viento máx: ${country.wind}`;
+          metaEl.className = "token-meta active";
+
+          // Enviar inmediatamente a index.html por Protobject
+          sendToProtobject(1, "set_country", country.name);
+        }
+      } else {
+        badgeEl.textContent = "Sobre el mapa";
+      }
+    }
+
+    function handleToken1Lost() {
+      if (currentT1Country !== null) {
+        currentT1Country = null;
+        document.getElementById("t1-country-name").textContent = "— Levantada —";
+        document.getElementById("t1-meta").textContent = "Turbina detenida";
+        document.getElementById("t1-meta").className = "token-meta";
+        document.getElementById("t1-state-badge").textContent = "Buscando...";
+        document.getElementById("t1-state-badge").style.color = "#94a3b8";
+
+        // Notificar remoción física de la ficha a Protobject
+        sendToProtobject(1, "remove", null);
+      }
+    }
+
+    // --- GESTIÓN DE EVENTOS DE FICHA 2 HACIA PROTOBJECT ---
+    function handleToken2Detected(country) {
+      const nameEl = document.getElementById("t2-country-name");
+      const metaEl = document.getElementById("t2-meta");
+      const badgeEl = document.getElementById("t2-state-badge");
+
+      if (country) {
+        badgeEl.textContent = "✓ Detectada";
+        badgeEl.style.color = "#4ade80";
+
+        if (currentT2Country !== country.name) {
+          currentT2Country = country.name;
+          nameEl.textContent = `${country.flag} ${country.name}`;
+          metaEl.textContent = `Viento máx: ${country.wind}`;
+          metaEl.className = "token-meta active";
+
+          // Enviar inmediatamente a index.html por Protobject
+          sendToProtobject(2, "set_country", country.name);
+        }
+      } else {
+        badgeEl.textContent = "Sobre el mapa";
+      }
+    }
+
+    function handleToken2Lost() {
+      if (currentT2Country !== null) {
+        currentT2Country = null;
+        document.getElementById("t2-country-name").textContent = "— Levantada —";
+        document.getElementById("t2-meta").textContent = "Turbina detenida";
+        document.getElementById("t2-meta").className = "token-meta";
+        document.getElementById("t2-state-badge").textContent = "Buscando...";
+        document.getElementById("t2-state-badge").style.color = "#94a3b8";
+
+        // Notificar remoción física de la ficha a Protobject
+        sendToProtobject(2, "remove", null);
+      }
+    }
+
+    // Enviar mensaje con Protobject
+    function sendToProtobject(turbineId, action, countryName) {
+      try {
+        if (window.Protobject && window.Protobject.Core) {
+          Protobject.Core.send({
+            turbine: turbineId,
+            action: action,
+            country: countryName
+          }).to("index.html");
+          console.log(`[PROTOBJECT] Enviado T${turbineId}: ${action} ${countryName || ''}`);
+        }
+      } catch(e) {
+        console.warn("Protobject error:", e);
+      }
+    }
+
+    // Escuchar feedback de años desde index.html para reflejar el año en la pantalla del celular
+    try {
+      if (window.Protobject && window.Protobject.Core) {
+        Protobject.Core.onReceived(function(data) {
+          if (data && data.type === "SYNC") {
+            const meta = document.getElementById(`t${data.turbine}-meta`);
+            if (meta) {
+              meta.textContent = `Año: ${data.year} • ${data.share}% eólico`;
+            }
+          }
+        });
+      }
     } catch(e) {}
 
-    // Generar lista de países
     window.addEventListener("DOMContentLoaded", () => {
-      const grid = document.getElementById("grid-countries");
-      COUNTRIES.forEach(c => {
-        const div = document.createElement("div");
-        div.className = "country-card";
-        div.dataset.name = c.name;
-        div.innerHTML = `
-          <div class="c-name">${c.flag} ${c.name}</div>
-          <div class="c-info">${c.wind}</div>
-        `;
-        div.onclick = () => placeTokenOnCountry(c.name);
-        grid.appendChild(div);
-      });
-
-      startCam();
+      initCamera();
     });
   </script>
 </body>
 </html>
-
